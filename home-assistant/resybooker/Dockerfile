@@ -9,6 +9,10 @@ RUN apt-get update \
 
 ARG REPO=https://github.com/kfj6bnwwyx-alt/Book-my-restaurant
 ARG REF=main
+# Cache-bust: this file's content is the latest commit on the branch, so Docker
+# re-runs the clone below whenever the repo updates. Without it, HA "Rebuild"
+# reuses the cached (stale) clone layer and never pulls new code.
+ADD https://api.github.com/repos/kfj6bnwwyx-alt/Book-my-restaurant/commits/main /etc/resybooker.commit
 RUN git clone --depth 1 --branch "$REF" "$REPO" /src
 
 WORKDIR /src/server
