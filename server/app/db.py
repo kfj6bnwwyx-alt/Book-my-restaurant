@@ -103,6 +103,37 @@ class AutoBookRun(SQLModel, table=True):
     detail: str = ""  # short human-readable summary
 
 
+class Watch(SQLModel, table=True):
+    """A standing poll on one venue for a specific date until a table appears.
+
+    Unlike a Drop (a scheduled release), a Watch re-checks the same venue/day on
+    an interval and either notifies or auto-books the instant a table in the
+    chosen time window shows up (e.g. a cancellation). Resy only.
+    """
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    pin_id: Optional[int] = None
+    provider: str = "resy"
+    venue_id: str
+    venue_name: str
+
+    day: str  # target YYYY-MM-DD
+    party_size: int = 2
+    earliest: str = "17:00"  # local HH:MM time window
+    latest: str = "22:00"
+
+    autobook: bool = False  # book on hit, vs notify only
+    notify: bool = True
+    interval_seconds: int = 60  # how often to poll (floored at 20s)
+    timezone: str = "America/New_York"
+
+    active: bool = True
+    status: str = "watching"  # watching | found | booked | expired | error
+    found_detail: str = ""
+    last_checked: Optional[datetime] = None
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+
+
 def init_db():
     SQLModel.metadata.create_all(engine)
 

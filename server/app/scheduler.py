@@ -13,12 +13,14 @@ from datetime import datetime
 from sqlmodel import Session, select
 
 from . import drops as drops_logic
-from .db import Drop, engine
+from . import watches as watch_logic
+from .db import Drop, Watch, engine
 
 RELAX_SECONDS = 30
 TIGHT_SECONDS = 1
 NEAR_WINDOW = 120  # seconds before a release where we tighten polling
 GRACE_SECONDS = 2 * 3600  # don't fire for a release older than this
+MIN_WATCH_INTERVAL = 20  # floor on how often a watch may poll
 
 _started = False
 
@@ -66,5 +68,23 @@ async def _run_due_and_plan() -> int:
                     session.commit()
             except Exception:
                 # One bad drop must not stop the worker.
+                continue
+
+        # Poll standing watches (specific venue + date) on their interval.
+        now_utc = datetime.utcnow()
+        for watch in session.exec(select(Watch).where(Watch.active == True)).all():  # noqa: E712
+            try:
+                interval = max(MIN_WATCH_INTERVAL, watch.interval_seconds)
+                due = (
+                    watch.last_checked is None
+                    or (now_utc - watch.last_checked).total_seconds() >= interval
+                )
+                if not due:
+                    continue
+                await watch_logic.run_watch(watch, session)
+                session.commit()
+                if watch.active:
+                    soonest = min(soonest, interval)
+            except Exception:
                 continue
     return soonest

@@ -66,6 +66,28 @@ the entire release window for hand-picking, and can auto-book the instant it ope
 - `POST /drops/{id}/run` triggers auto-book now (useful for testing).
   `GET /drops/{id}/runs` shows recent run outcomes.
 
+## Watches
+
+A drop is for scheduled releases. A watch is for everything else: poll one venue
+for a specific date and time window until a table appears (e.g. a cancellation),
+then notify or auto-book. Resy only.
+
+- `POST /watches`:
+  ```json
+  {
+    "venue_id": "12345", "venue_name": "4 Charles Prime Rib", "pin_id": 9,
+    "day": "2026-06-20", "party_size": 2, "earliest": "18:00", "latest": "21:00",
+    "autobook": true, "interval_seconds": 60, "timezone": "America/New_York"
+  }
+  ```
+  The worker polls every `interval_seconds` (floored at 20s). With `autobook`
+  true it grabs the first matching table; otherwise it flips `status` to `found`
+  and stops. A watch expires once its `day` is in the past.
+- `GET /watches` lists them with `status` (watching / found / booked / expired /
+  error) and `last_checked`.
+- `PATCH /watches/{id}` to pause (`active:false`), resume, or retune the window.
+- `POST /watches/{id}/check` polls once now (for testing).
+
 ## Notes
 
 - All endpoints except /health require the `X-App-Key` header.
@@ -73,7 +95,7 @@ the entire release window for hand-picking, and can auto-book the instant it ope
 - If Resy responses start 400ing, the public RESY_API_KEY may have rotated;
   grab the current one from the resy.com web app and update .env.
 - OpenTable is availability-only by design. Booking and drops go through Resy.
-- The auto-book worker runs in-process and tracks the last release it fired for,
-  so run a single uvicorn worker (the default here). Multiple workers would each
-  run the scheduler and could double-book. Drop schedules are evaluated in each
-  drop's own `timezone`.
+- The background worker (drop auto-book + watch polling) runs in-process and
+  dedupes per release cycle, so run a single uvicorn worker (the default here).
+  Multiple workers would each run the scheduler and could double-book. Drop and
+  watch schedules are evaluated in each record's own `timezone`.

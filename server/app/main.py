@@ -20,6 +20,14 @@ Endpoints:
   POST   /drops/{id}/reserve         book one or more selected slots
   POST   /drops/{id}/run             run auto-book now (manual trigger / test)
   GET    /drops/{id}/runs            recent auto-book run history
+
+  Watches (poll a specific venue + date until a table appears):
+  GET    /watches                    list watches + status
+  POST   /watches                    start watching a venue/date/time window
+  GET    /watches/{id}               watch detail
+  PATCH  /watches/{id}               update or pause/resume a watch
+  DELETE /watches/{id}               remove a watch
+  POST   /watches/{id}/check         check now (manual trigger / test)
 """
 
 import asyncio
@@ -32,8 +40,9 @@ from sqlmodel import Session, select
 
 from . import drops as drops_logic
 from . import opentable, resy, scheduler
+from . import watches as watch_logic
 from .config import get_settings
-from .db import AutoBookRun, BookingRecord, Drop, Pin, get_session, init_db
+from .db import AutoBookRun, BookingRecord, Drop, Pin, Watch, get_session, init_db
 from .matching import load_pins_from_text, rank_matches
 
 app = FastAPI(title="ResyBooker")
@@ -115,6 +124,33 @@ class SlotRef(BaseModel):
 class ReserveBody(BaseModel):
     party_size: int = 2
     slots: List[SlotRef]
+
+
+class WatchCreate(BaseModel):
+    pin_id: Optional[int] = None
+    provider: str = "resy"
+    venue_id: str
+    venue_name: str
+    day: str  # target YYYY-MM-DD
+    party_size: int = 2
+    earliest: str = "17:00"
+    latest: str = "22:00"
+    autobook: bool = False
+    notify: bool = True
+    interval_seconds: int = 60
+    timezone: str = "America/New_York"
+
+
+class WatchUpdate(BaseModel):
+    day: Optional[str] = None
+    party_size: Optional[int] = None
+    earliest: Optional[str] = None
+    latest: Optional[str] = None
+    autobook: Optional[bool] = None
+    notify: Optional[bool] = None
+    interval_seconds: Optional[int] = None
+    active: Optional[bool] = None
+    timezone: Optional[str] = None
 
 
 # ---------- pins ----------
@@ -416,3 +452,90 @@ def drop_runs(drop_id: int, session: Session = Depends(get_session)):
         }
         for r in runs[:20]
     ]
+
+
+# ---------- watches ----------
+
+
+def _watch_dict(w: Watch) -> dict:
+    return {
+        "id": w.id,
+        "pin_id": w.pin_id,
+        "provider": w.provider,
+        "venue_id": w.venue_id,
+        "venue_name": w.venue_name,
+        "day": w.day,
+        "party_size": w.party_size,
+        "earliest": w.earliest,
+        "latest": w.latest,
+        "autobook": w.autobook,
+        "notify": w.notify,
+        "interval_seconds": w.interval_seconds,
+        "timezone": w.timezone,
+        "active": w.active,
+        "status": w.status,
+        "found_detail": w.found_detail,
+        "last_checked": w.last_checked.isoformat() if w.last_checked else None,
+    }
+
+
+def _get_watch(watch_id: int, session: Session) -> Watch:
+    w = session.get(Watch, watch_id)
+    if not w:
+        raise HTTPException(404, "watch not found")
+    return w
+
+
+@app.get("/watches", dependencies=[Depends(require_key)])
+def list_watches(session: Session = Depends(get_session)):
+    watches = session.exec(select(Watch)).all()
+    out = [_watch_dict(w) for w in watches]
+    out.sort(key=lambda w: (not w["active"], w["day"]))
+    return out
+
+
+@app.post("/watches", dependencies=[Depends(require_key)])
+def create_watch(body: WatchCreate, session: Session = Depends(get_session)):
+    if body.provider != "resy":
+        raise HTTPException(400, "watches support Resy only")
+    w = Watch(**body.model_dump())
+    session.add(w)
+    session.commit()
+    session.refresh(w)
+    return _watch_dict(w)
+
+
+@app.get("/watches/{watch_id}", dependencies=[Depends(require_key)])
+def get_watch(watch_id: int, session: Session = Depends(get_session)):
+    return _watch_dict(_get_watch(watch_id, session))
+
+
+@app.patch("/watches/{watch_id}", dependencies=[Depends(require_key)])
+def update_watch(watch_id: int, body: WatchUpdate, session: Session = Depends(get_session)):
+    w = _get_watch(watch_id, session)
+    fields = body.model_dump(exclude_unset=True)
+    # Re-activating a watch should clear a terminal status so it polls again.
+    if fields.get("active") and not w.active:
+        w.status = "watching"
+    for field, value in fields.items():
+        setattr(w, field, value)
+    session.add(w)
+    session.commit()
+    session.refresh(w)
+    return _watch_dict(w)
+
+
+@app.delete("/watches/{watch_id}", dependencies=[Depends(require_key)])
+def delete_watch(watch_id: int, session: Session = Depends(get_session)):
+    w = _get_watch(watch_id, session)
+    session.delete(w)
+    session.commit()
+    return {"ok": True, "watch_id": watch_id}
+
+
+@app.post("/watches/{watch_id}/check", dependencies=[Depends(require_key)])
+async def check_watch(watch_id: int, session: Session = Depends(get_session)):
+    w = _get_watch(watch_id, session)
+    result = await watch_logic.run_watch(w, session)
+    session.commit()
+    return result
