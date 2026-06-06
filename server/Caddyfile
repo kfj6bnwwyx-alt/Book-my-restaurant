@@ -1,0 +1,6 @@
+# Caddy reverse proxy for ResyBooker. Automatic HTTPS via Let's Encrypt.
+# Requires: DNS A record for the domain pointing at this server, ports 80+443 open.
+# Install: see DEPLOY.md. Reload after edits: sudo systemctl reload caddy
+resy.brentbrooks.com {
+    reverse_proxy 127.0.0.1:8080
+}

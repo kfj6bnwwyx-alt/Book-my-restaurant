@@ -4,6 +4,9 @@ Personal-use back end that fronts the Resy and OpenTable unofficial APIs behind
 your own clean JSON API. Runs on your Hetzner VPS in Docker, fronted by Caddy
 for TLS at e.g. resy.brentbrooks.com.
 
+For full VPS provisioning (Hetzner server, cloud-init, Caddy, DNS), see
+[../DEPLOY.md](../DEPLOY.md). The quick version is below.
+
 ## First run
 
 1. `cp .env.example .env` and fill it in.
