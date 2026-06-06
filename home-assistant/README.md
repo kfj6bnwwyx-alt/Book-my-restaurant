@@ -40,10 +40,13 @@ So you end up with:
 
 ## 3. Find your payment method id
 
-From any machine on your LAN (replace the host if needed):
+Other add-ons (the SSH/Terminal add-on, Cloudflared) reach ResyBooker by its
+internal hostname **`local-resybooker`**, not `homeassistant.local`. Reaching the
+host's published port from inside another add-on container resets the connection.
+From the SSH/Terminal add-on:
 
 ```bash
-curl -H "X-App-Key: YOUR_APP_KEY" http://homeassistant.local:8080/resy/payment-methods
+curl -H "X-App-Key: YOUR_APP_KEY" http://local-resybooker:8080/resy/payment-methods
 ```
 
 Copy the id of the card you want to book with, set `resy_payment_method_id` in
@@ -51,18 +54,20 @@ the add-on Configuration, and **Restart** the add-on.
 
 ## 4. Expose it through Cloudflare
 
-The add-on publishes port `8080` on the HA host, so point a Cloudflare tunnel
-hostname at it. If you use the **Cloudflared** add-on, add to its config:
+Point a Cloudflare tunnel hostname at the add-on's internal hostname
+`local-resybooker:8080` (the Cloudflared add-on is itself a container, so use the
+internal hostname, not `homeassistant.local`). If you use the **Cloudflared**
+add-on, add to its config:
 
 ```yaml
 additional_hosts:
   - hostname: resy.brentbrooks.com
-    service: http://homeassistant.local:8080
+    service: http://local-resybooker:8080
 ```
 
 Or, in the Cloudflare Zero Trust dashboard, add a public hostname on your tunnel:
-`resy.brentbrooks.com` -> service `http://homeassistant.local:8080` (or the HA
-box's LAN IP). Cloudflare terminates TLS, so there is no Caddy or cert to manage.
+`resy.brentbrooks.com` -> service `http://local-resybooker:8080`. Cloudflare
+terminates TLS, so there is no Caddy or cert to manage.
 
 Verify: `curl https://resy.brentbrooks.com/health`.
 
@@ -75,9 +80,9 @@ If you ever want to skip Cloudflare and reach the add-on over a private tailnet:
 2. In the Tailscale admin console, enable **MagicDNS**. The host gets a name like
    `homeassistant.<your-tailnet>.ts.net`.
 3. Put HTTPS in front with **Tailscale Serve**, so iOS App Transport Security is
-   happy: enable serve to `localhost:8080` in the add-on options, or run
-   `tailscale serve --bg 8080` on the host. ResyBooker is then reachable at
-   `https://homeassistant.<your-tailnet>.ts.net`.
+   happy: point serve at the add-on's internal hostname, e.g.
+   `tailscale serve --bg http://local-resybooker:8080`. ResyBooker is then
+   reachable at `https://homeassistant.<your-tailnet>.ts.net`.
    - Without Serve you would be on plain `http://...:8080`, which iOS blocks by
      default (ATS). Serve gives you a real cert and avoids that.
 4. Install Tailscale on each phone and sign in, then point the app at the
