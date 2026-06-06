@@ -1,4 +1,20 @@
-# ResyBooker server
+# ResyBooker
+
+Personal Resy/OpenTable reservation tool: a FastAPI server (`server/`) plus a
+SwiftUI iOS app (`ios/`). Checks availability across your saved spots, books in
+one tap, tracks scheduled reservation "drops", and polls specific venues until a
+table appears.
+
+> **Picking this up / current state:** read **[HANDOFF.md](HANDOFF.md)** first. It
+> covers the live deployment, config, and what's left to do.
+>
+> **Deploying:** Home Assistant add-on (in use) → [home-assistant/README.md](home-assistant/README.md).
+> Hetzner VPS path → [DEPLOY.md](DEPLOY.md). Server API → [server/README.md](server/README.md).
+> Design system → [DESIGN.md](DESIGN.md) / [docs/design-notes.md](docs/design-notes.md).
+
+---
+
+## ResyBooker server
 
 Personal-use back end that fronts the Resy and OpenTable unofficial APIs behind
 your own clean JSON API. Runs on your Hetzner VPS in Docker, fronted by Caddy
