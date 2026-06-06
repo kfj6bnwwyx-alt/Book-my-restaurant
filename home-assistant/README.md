@@ -66,9 +66,31 @@ box's LAN IP). Cloudflare terminates TLS, so there is no Caddy or cert to manage
 
 Verify: `curl https://resy.brentbrooks.com/health`.
 
+## 4b. Alternative: Tailscale (instead of Cloudflare)
+
+If you ever want to skip Cloudflare and reach the add-on over a private tailnet:
+
+1. Install the **Tailscale** add-on, start it, and open the **Log** to follow the
+   login URL. The HA host joins your tailnet.
+2. In the Tailscale admin console, enable **MagicDNS**. The host gets a name like
+   `homeassistant.<your-tailnet>.ts.net`.
+3. Put HTTPS in front with **Tailscale Serve**, so iOS App Transport Security is
+   happy: enable serve to `localhost:8080` in the add-on options, or run
+   `tailscale serve --bg 8080` on the host. ResyBooker is then reachable at
+   `https://homeassistant.<your-tailnet>.ts.net`.
+   - Without Serve you would be on plain `http://...:8080`, which iOS blocks by
+     default (ATS). Serve gives you a real cert and avoids that.
+4. Install Tailscale on each phone and sign in, then point the app at the
+   `https://...ts.net` URL.
+
+Trade-off: every device that uses the app must be on your tailnet. That is fine
+for your own phones; for friends you would add them to the tailnet (or just use
+the Cloudflare route above, which needs nothing on their end).
+
 ## 5. Point the app
 
-In `ios/ResyBooker/Utilities/Constants.swift`:
+In `ios/ResyBooker/Utilities/Constants.swift`, use whichever hostname you set up
+(the Cloudflare one, or the Tailscale `...ts.net` one):
 
 ```swift
 static let apiBaseURL = URL(string: "https://resy.brentbrooks.com")!
