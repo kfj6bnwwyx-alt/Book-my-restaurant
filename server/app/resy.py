@@ -16,6 +16,12 @@ from .config import get_settings
 BASE = "https://api.resy.com"
 
 
+BROWSER_UA = (
+    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
+    "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36"
+)
+
+
 def _auth_header_value() -> str:
     return f'ResyAPI api_key="{get_settings().resy_api_key}"'
 
@@ -27,10 +33,7 @@ def _headers(token: str) -> dict:
         "X-Resy-Universal-Auth": token,
         "Origin": "https://resy.com",
         "Referer": "https://resy.com/",
-        "User-Agent": (
-            "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
-            "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36"
-        ),
+        "User-Agent": BROWSER_UA,
         "Accept": "application/json",
         "X-Origin": "https://resy.com",
     }
@@ -70,7 +73,10 @@ async def refresh_token(stale: str = None) -> str:
         headers = {
             "Authorization": _auth_header_value(),
             "Origin": "https://resy.com",
-            "User-Agent": "Mozilla/5.0",
+            "Referer": "https://resy.com/",
+            "User-Agent": BROWSER_UA,
+            "Accept": "application/json",
+            "X-Origin": "https://resy.com",
             "Content-Type": "application/x-www-form-urlencoded",
         }
         async with httpx.AsyncClient(timeout=20) as c:
