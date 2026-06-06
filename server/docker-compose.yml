@@ -1,0 +1,11 @@
+services:
+  resybooker:
+    build: .
+    restart: unless-stopped
+    env_file: .env
+    ports:
+      - "127.0.0.1:8080:8080"   # bind localhost; front with Caddy for TLS
+    volumes:
+      - ./data:/app/data
+    environment:
+      - DB_URL=sqlite:////app/data/resybooker.db

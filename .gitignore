@@ -1,0 +1,39 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+env/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Environment / secrets
+.env
+.env.*
+!.env.example
+
+# Databases
+*.sqlite
+*.sqlite3
+*.db
+
+# iOS / Xcode / Swift
+DerivedData/
+build/
+*.xcuserstate
+*.xcworkspace/xcuserdata/
+*.xcodeproj/xcuserdata/
+xcuserdata/
+.build/
+Packages/
+*.ipa
+*.dSYM.zip
+*.dSYM
+
+# macOS / editors
+.DS_Store
+.idea/
+.vscode/
+*.swp
