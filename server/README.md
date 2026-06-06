@@ -32,10 +32,48 @@ for TLS at e.g. resy.brentbrooks.com.
 4. `GET /availability?day=2026-06-12&party_size=2` returns who has tables.
 5. `POST /book` with a slot's config_token to reserve.
 
+## Drops
+
+Some venues release their tables in scheduled tranches ("drops"), e.g. every two
+weeks at noon for a two-week window. A drop tracks one venue's schedule, exposes
+the entire release window for hand-picking, and can auto-book the instant it opens.
+
+- `POST /drops` to track one. Resy only. Body:
+  ```json
+  {
+    "venue_id": "12345", "venue_name": "Ambassador's Clubhouse", "pin_id": 7,
+    "cadence": "biweekly", "anchor_date": "2026-06-18", "release_time": "12:00",
+    "window_days": 14, "timezone": "America/New_York"
+  }
+  ```
+  `cadence` is `daily` | `weekly` (set `release_weekday` 0=Mon..6=Sun) |
+  `biweekly` (set `anchor_date`, a known release date) | `monthly` (set
+  `release_dom` 1..28). `release_time` is local to `timezone`.
+- `GET /drops` lists them with a computed `status` (open / upcoming),
+  `next_release`, and `opens_in_seconds` for the countdown.
+- `GET /drops/{id}/window?party_size=2` returns every day in the window with all
+  its times, for the grid.
+- `POST /drops/{id}/reserve` books a hand-picked set:
+  `{ "party_size": 2, "slots": [{ "config_token": "...", "day": "2026-06-20" }] }`.
+- `PATCH /drops/{id}` arms and configures auto-book:
+  ```json
+  {
+    "autobook_enabled": true, "ab_party_size": 2, "ab_days": "Fri,Sat,Sun",
+    "ab_earliest": "17:00", "ab_latest": "21:00", "ab_max": 1, "ab_priority": "prime"
+  }
+  ```
+  A background worker then grabs the best matches within ~1s of the next release.
+- `POST /drops/{id}/run` triggers auto-book now (useful for testing).
+  `GET /drops/{id}/runs` shows recent run outcomes.
+
 ## Notes
 
 - All endpoints except /health require the `X-App-Key` header.
 - Token refresh is automatic on 401 if email/password are set.
 - If Resy responses start 400ing, the public RESY_API_KEY may have rotated;
   grab the current one from the resy.com web app and update .env.
-- OpenTable is availability-only by design. Booking goes through Resy.
+- OpenTable is availability-only by design. Booking and drops go through Resy.
+- The auto-book worker runs in-process and tracks the last release it fired for,
+  so run a single uvicorn worker (the default here). Multiple workers would each
+  run the scheduler and could double-book. Drop schedules are evaluated in each
+  drop's own `timezone`.

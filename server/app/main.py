@@ -1,35 +1,48 @@
 """ResyBooker API. One shared key, personal use.
 
 Endpoints:
-  GET  /health
-  GET  /pins                         list saved pins + link status
-  POST /pins/import                  import Google Takeout GeoJSON
-  GET  /pins/{id}/candidates         provider venue candidates for a pin
-  POST /pins/{id}/link               confirm pin -> venue mapping
-  GET  /availability                 fan out across linked pins for date/time/party
-  POST /book                         book a Resy slot
-  GET  /resy/payment-methods         helper to find your payment_method_id
+  GET    /health
+  GET    /pins                       list saved pins + link status
+  POST   /pins/import                import Google Takeout GeoJSON
+  GET    /pins/{id}/candidates       provider venue candidates for a pin
+  POST   /pins/{id}/link             confirm pin -> venue mapping
+  GET    /availability               fan out across linked pins for date/time/party
+  POST   /book                       book a Resy slot
+  GET    /resy/payment-methods       helper to find your payment_method_id
+
+  Drops (venues that release tables on a schedule):
+  GET    /drops                      list drops + status/countdown/auto-book summary
+  POST   /drops                      create a drop
+  GET    /drops/{id}                 drop detail
+  PATCH  /drops/{id}                 update schedule or auto-book preferences
+  DELETE /drops/{id}                 remove a drop
+  GET    /drops/{id}/window          the whole release window (every day + time)
+  POST   /drops/{id}/reserve         book one or more selected slots
+  POST   /drops/{id}/run             run auto-book now (manual trigger / test)
+  GET    /drops/{id}/runs            recent auto-book run history
 """
 
 import asyncio
 from datetime import datetime
-from typing import Optional
+from typing import List, Optional
 
 from fastapi import Depends, FastAPI, Header, HTTPException, Query
 from pydantic import BaseModel
 from sqlmodel import Session, select
 
-from . import opentable, resy
+from . import drops as drops_logic
+from . import opentable, resy, scheduler
 from .config import get_settings
-from .db import BookingRecord, Pin, get_session, init_db
+from .db import AutoBookRun, BookingRecord, Drop, Pin, get_session, init_db
 from .matching import load_pins_from_text, rank_matches
 
 app = FastAPI(title="ResyBooker")
 
 
 @app.on_event("startup")
-def _startup():
+async def _startup():
     init_db()
+    scheduler.start()
 
 
 def require_key(x_app_key: str = Header(default="")):
@@ -57,6 +70,51 @@ class BookBody(BaseModel):
     day: str  # YYYY-MM-DD
     party_size: int
     config_token: str  # from /availability slot
+
+
+class DropCreate(BaseModel):
+    pin_id: Optional[int] = None
+    provider: str = "resy"
+    venue_id: str
+    venue_name: str
+    cadence: str = "biweekly"  # daily | weekly | biweekly | monthly
+    release_weekday: Optional[int] = None  # 0=Mon..6=Sun (weekly)
+    release_dom: Optional[int] = None  # 1..28 (monthly)
+    release_time: str = "12:00"  # local HH:MM
+    anchor_date: Optional[str] = None  # YYYY-MM-DD, required for biweekly
+    window_days: int = 14
+    timezone: str = "America/New_York"
+    watching: bool = True
+
+
+class DropUpdate(BaseModel):
+    cadence: Optional[str] = None
+    release_weekday: Optional[int] = None
+    release_dom: Optional[int] = None
+    release_time: Optional[str] = None
+    anchor_date: Optional[str] = None
+    window_days: Optional[int] = None
+    timezone: Optional[str] = None
+    watching: Optional[bool] = None
+    autobook_enabled: Optional[bool] = None
+    ab_party_size: Optional[int] = None
+    ab_days: Optional[str] = None  # comma list of Mon..Sun, empty = any
+    ab_earliest: Optional[str] = None
+    ab_latest: Optional[str] = None
+    ab_max: Optional[int] = None
+    ab_priority: Optional[str] = None  # prime | earliest | latest
+    ab_notify_on_fail: Optional[bool] = None
+
+
+class SlotRef(BaseModel):
+    config_token: str
+    day: str  # YYYY-MM-DD
+    time: Optional[str] = None
+
+
+class ReserveBody(BaseModel):
+    party_size: int = 2
+    slots: List[SlotRef]
 
 
 # ---------- pins ----------
@@ -215,3 +273,146 @@ async def make_booking(body: BookBody, session: Session = Depends(get_session)):
 @app.get("/resy/payment-methods", dependencies=[Depends(require_key)])
 async def payment_methods():
     return await resy.list_payment_methods()
+
+
+# ---------- drops ----------
+
+
+def _drop_dict(drop: Drop) -> dict:
+    return {
+        "id": drop.id,
+        "pin_id": drop.pin_id,
+        "provider": drop.provider,
+        "venue_id": drop.venue_id,
+        "venue_name": drop.venue_name,
+        "cadence": drop.cadence,
+        "release_weekday": drop.release_weekday,
+        "release_dom": drop.release_dom,
+        "release_time": drop.release_time,
+        "anchor_date": drop.anchor_date,
+        "window_days": drop.window_days,
+        "timezone": drop.timezone,
+        "watching": drop.watching,
+        "autobook_enabled": drop.autobook_enabled,
+        "autobook": {
+            "party_size": drop.ab_party_size,
+            "days": drop.ab_days,
+            "earliest": drop.ab_earliest,
+            "latest": drop.ab_latest,
+            "max": drop.ab_max,
+            "priority": drop.ab_priority,
+            "notify_on_fail": drop.ab_notify_on_fail,
+        },
+        **drops_logic.status(drop),
+    }
+
+
+def _get_drop(drop_id: int, session: Session) -> Drop:
+    drop = session.get(Drop, drop_id)
+    if not drop:
+        raise HTTPException(404, "drop not found")
+    return drop
+
+
+@app.get("/drops", dependencies=[Depends(require_key)])
+def list_drops(session: Session = Depends(get_session)):
+    drops = session.exec(select(Drop)).all()
+    out = [_drop_dict(d) for d in drops]
+    out.sort(key=lambda d: (not d["open"], d["opens_in_seconds"]))
+    return out
+
+
+@app.post("/drops", dependencies=[Depends(require_key)])
+def create_drop(body: DropCreate, session: Session = Depends(get_session)):
+    if body.provider != "resy":
+        raise HTTPException(400, "drops support Resy only")
+    if body.cadence == "biweekly" and not body.anchor_date:
+        raise HTTPException(400, "biweekly drops need anchor_date (a known release date)")
+    drop = Drop(**body.model_dump())
+    session.add(drop)
+    session.commit()
+    session.refresh(drop)
+    return _drop_dict(drop)
+
+
+@app.get("/drops/{drop_id}", dependencies=[Depends(require_key)])
+def get_drop(drop_id: int, session: Session = Depends(get_session)):
+    return _drop_dict(_get_drop(drop_id, session))
+
+
+@app.patch("/drops/{drop_id}", dependencies=[Depends(require_key)])
+def update_drop(drop_id: int, body: DropUpdate, session: Session = Depends(get_session)):
+    drop = _get_drop(drop_id, session)
+    for field, value in body.model_dump(exclude_unset=True).items():
+        setattr(drop, field, value)
+    session.add(drop)
+    session.commit()
+    session.refresh(drop)
+    return _drop_dict(drop)
+
+
+@app.delete("/drops/{drop_id}", dependencies=[Depends(require_key)])
+def delete_drop(drop_id: int, session: Session = Depends(get_session)):
+    drop = _get_drop(drop_id, session)
+    session.delete(drop)
+    session.commit()
+    return {"ok": True, "drop_id": drop_id}
+
+
+@app.get("/drops/{drop_id}/window", dependencies=[Depends(require_key)])
+async def drop_window(
+    drop_id: int,
+    party_size: Optional[int] = Query(None, description="defaults to the drop's auto-book party size"),
+    session: Session = Depends(get_session),
+):
+    drop = _get_drop(drop_id, session)
+    ps = party_size or drop.ab_party_size
+    results = await drops_logic.fetch_window(drop, ps)
+    return {
+        "drop_id": drop_id,
+        "venue_name": drop.venue_name,
+        "party_size": ps,
+        "results": results,
+        **drops_logic.status(drop),
+    }
+
+
+@app.post("/drops/{drop_id}/reserve", dependencies=[Depends(require_key)])
+async def drop_reserve(drop_id: int, body: ReserveBody, session: Session = Depends(get_session)):
+    drop = _get_drop(drop_id, session)
+    slots = [s.model_dump() for s in body.slots]
+    return await drops_logic.reserve_slots(drop, slots, body.party_size, session)
+
+
+@app.post("/drops/{drop_id}/run", dependencies=[Depends(require_key)])
+async def drop_run(drop_id: int, session: Session = Depends(get_session)):
+    drop = _get_drop(drop_id, session)
+    run = await drops_logic.run_autobook(drop, session)
+    session.commit()
+    return {
+        "status": run.status,
+        "booked": run.booked,
+        "attempted": run.attempted,
+        "detail": run.detail,
+    }
+
+
+@app.get("/drops/{drop_id}/runs", dependencies=[Depends(require_key)])
+def drop_runs(drop_id: int, session: Session = Depends(get_session)):
+    _get_drop(drop_id, session)
+    runs = session.exec(
+        select(AutoBookRun)
+        .where(AutoBookRun.drop_id == drop_id)
+        .order_by(AutoBookRun.ran_at.desc())
+    ).all()
+    return [
+        {
+            "id": r.id,
+            "ran_at": r.ran_at.isoformat(),
+            "status": r.status,
+            "booked": r.booked,
+            "attempted": r.attempted,
+            "detail": r.detail,
+        }
+        for r in runs[:20]
+    ]

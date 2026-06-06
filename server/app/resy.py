@@ -7,6 +7,8 @@ X-Resy-Auth-Token. The token rotates; refresh_token() mints a fresh one from
 email/password when calls start returning 401.
 """
 
+import asyncio
+
 import httpx
 
 from .config import get_settings
@@ -40,6 +42,9 @@ class ResyError(Exception):
 
 # Mutable so refresh_token can update it without restarting the process.
 _token_cache = {"value": None}
+# Serializes token refresh so a fan-out (e.g. an auto-book window) that 401s on
+# many requests at once triggers exactly one login, not one per request.
+_token_lock = asyncio.Lock()
 
 
 def current_token() -> str:
@@ -49,37 +54,46 @@ def current_token() -> str:
     return _token_cache["value"]
 
 
-async def refresh_token() -> str:
-    """Mint a new auth token from email/password. Updates the in-process cache."""
+async def refresh_token(stale: str = None) -> str:
+    """Mint a new auth token from email/password. Updates the in-process cache.
+
+    Pass the token that just 401'd as `stale`: if another caller already
+    refreshed while we waited for the lock, we return the fresh one instead of
+    logging in again.
+    """
     s = get_settings()
     if not (s.resy_email and s.resy_password):
         raise ResyError("RESY_EMAIL/RESY_PASSWORD not set; cannot refresh token")
-    headers = {
-        "Authorization": _auth_header_value(),
-        "Origin": "https://resy.com",
-        "User-Agent": "Mozilla/5.0",
-        "Content-Type": "application/x-www-form-urlencoded",
-    }
-    async with httpx.AsyncClient(timeout=20) as c:
-        r = await c.post(
-            f"{BASE}/3/auth/password",
-            data={"email": s.resy_email, "password": s.resy_password},
-            headers=headers,
-        )
-        if r.status_code != 200:
-            raise ResyError(f"login failed: {r.status_code} {r.text[:200]}")
-        token = r.json().get("token")
-        if not token:
-            raise ResyError("login response had no token")
-        _token_cache["value"] = token
-        return token
+    async with _token_lock:
+        if stale is not None and _token_cache["value"] and _token_cache["value"] != stale:
+            return _token_cache["value"]
+        headers = {
+            "Authorization": _auth_header_value(),
+            "Origin": "https://resy.com",
+            "User-Agent": "Mozilla/5.0",
+            "Content-Type": "application/x-www-form-urlencoded",
+        }
+        async with httpx.AsyncClient(timeout=20) as c:
+            r = await c.post(
+                f"{BASE}/3/auth/password",
+                data={"email": s.resy_email, "password": s.resy_password},
+                headers=headers,
+            )
+            if r.status_code != 200:
+                raise ResyError(f"login failed: {r.status_code} {r.text[:200]}")
+            token = r.json().get("token")
+            if not token:
+                raise ResyError("login response had no token")
+            _token_cache["value"] = token
+            return token
 
 
 async def _get(path: str, params: dict, retry: bool = True) -> dict:
+    tok = current_token()
     async with httpx.AsyncClient(timeout=20) as c:
-        r = await c.get(f"{BASE}{path}", params=params, headers=_headers(current_token()))
+        r = await c.get(f"{BASE}{path}", params=params, headers=_headers(tok))
     if r.status_code == 401 and retry:
-        await refresh_token()
+        await refresh_token(stale=tok)
         return await _get(path, params, retry=False)
     if r.status_code >= 400:
         raise ResyError(f"GET {path} -> {r.status_code} {r.text[:300]}")
@@ -87,7 +101,8 @@ async def _get(path: str, params: dict, retry: bool = True) -> dict:
 
 
 async def _post(path: str, *, json=None, data=None, retry: bool = True) -> dict:
-    headers = _headers(current_token())
+    tok = current_token()
+    headers = _headers(tok)
     if json is not None:
         headers["Content-Type"] = "application/json"
     else:
@@ -95,7 +110,7 @@ async def _post(path: str, *, json=None, data=None, retry: bool = True) -> dict:
     async with httpx.AsyncClient(timeout=20) as c:
         r = await c.post(f"{BASE}{path}", json=json, data=data, headers=headers)
     if r.status_code == 401 and retry:
-        await refresh_token()
+        await refresh_token(stale=tok)
         return await _post(path, json=json, data=data, retry=False)
     if r.status_code >= 400:
         raise ResyError(f"POST {path} -> {r.status_code} {r.text[:300]}")
