@@ -88,11 +88,15 @@ async def refresh_token(stale: str = None) -> str:
             return token
 
 
+# Resy returns 419 (not just 401) when the auth token is missing or expired.
+AUTH_FAIL = (401, 419)
+
+
 async def _get(path: str, params: dict, retry: bool = True) -> dict:
     tok = current_token()
     async with httpx.AsyncClient(timeout=20) as c:
         r = await c.get(f"{BASE}{path}", params=params, headers=_headers(tok))
-    if r.status_code == 401 and retry:
+    if r.status_code in AUTH_FAIL and retry:
         await refresh_token(stale=tok)
         return await _get(path, params, retry=False)
     if r.status_code >= 400:
@@ -109,7 +113,7 @@ async def _post(path: str, *, json=None, data=None, retry: bool = True) -> dict:
         headers["Content-Type"] = "application/x-www-form-urlencoded"
     async with httpx.AsyncClient(timeout=20) as c:
         r = await c.post(f"{BASE}{path}", json=json, data=data, headers=headers)
-    if r.status_code == 401 and retry:
+    if r.status_code in AUTH_FAIL and retry:
         await refresh_token(stale=tok)
         return await _post(path, json=json, data=data, retry=False)
     if r.status_code >= 400:

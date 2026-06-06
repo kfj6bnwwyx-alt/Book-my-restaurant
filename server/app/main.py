@@ -34,7 +34,8 @@ import asyncio
 from datetime import datetime
 from typing import List, Optional
 
-from fastapi import Depends, FastAPI, Header, HTTPException, Query
+from fastapi import Depends, FastAPI, Header, HTTPException, Query, Request
+from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 from sqlmodel import Session, select
 
@@ -52,6 +53,17 @@ app = FastAPI(title="ResyBooker")
 async def _startup():
     init_db()
     scheduler.start()
+
+
+@app.exception_handler(resy.ResyError)
+async def _resy_error(request: Request, exc: resy.ResyError):
+    # Surface the real upstream reason instead of a bare 500.
+    return JSONResponse(status_code=502, content={"detail": f"Resy error: {exc}"})
+
+
+@app.exception_handler(opentable.OpenTableError)
+async def _opentable_error(request: Request, exc: opentable.OpenTableError):
+    return JSONResponse(status_code=502, content={"detail": f"OpenTable error: {exc}"})
 
 
 def require_key(x_app_key: str = Header(default="")):
