@@ -1,5 +1,9 @@
 # Deploying ResyBooker to a Hetzner VPS
 
+> No VPS? If you have a Home Assistant OS box, run it there instead as a local
+> add-on: see [home-assistant/README.md](home-assistant/README.md). The rest of
+> this file is the VPS path.
+
 The server runs in Docker, fronted by Caddy for TLS, on a small Hetzner Cloud
 box. Two paths: automated (cloud-init) or manual. Either way you finish with the
 same `docker compose up` and a Caddy reverse proxy.

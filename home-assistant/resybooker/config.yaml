@@ -1,0 +1,30 @@
+name: ResyBooker
+version: "1.0.0"
+slug: resybooker
+description: Personal Resy/OpenTable reservation server (availability, drops, watches, auto-book)
+url: https://github.com/kfj6bnwwyx-alt/Book-my-restaurant
+arch:
+  - aarch64
+  - amd64
+  - armv7
+init: false
+startup: application
+boot: auto
+ports:
+  8080/tcp: 8080
+ports_description:
+  8080/tcp: ResyBooker API (point the iOS app and your Cloudflare tunnel here)
+options:
+  app_key: ""
+  resy_email: ""
+  resy_password: ""
+  resy_auth_token: ""
+  resy_api_key: "VbWk7s3L4KiK5fzlO7JD3Q5EYolJI7n5"
+  resy_payment_method_id: 0
+schema:
+  app_key: str
+  resy_email: "email?"
+  resy_password: "password?"
+  resy_auth_token: "str?"
+  resy_api_key: str
+  resy_payment_method_id: int
