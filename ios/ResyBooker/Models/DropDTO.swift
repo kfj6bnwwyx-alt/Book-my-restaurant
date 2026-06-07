@@ -72,6 +72,27 @@ struct DropCreateRequest: Codable {
     }
 }
 
+/// Body for PATCH /drops/{id}. Only set fields are sent (nil omitted).
+struct DropUpdateRequest: Codable {
+    var autobookEnabled: Bool?
+    var abPartySize: Int?
+    var abDays: String?
+    var abEarliest: String?
+    var abLatest: String?
+    var abPriority: String?
+    var abNotifyOnFail: Bool?
+
+    enum CodingKeys: String, CodingKey {
+        case autobookEnabled = "autobook_enabled"
+        case abPartySize = "ab_party_size"
+        case abDays = "ab_days"
+        case abEarliest = "ab_earliest"
+        case abLatest = "ab_latest"
+        case abPriority = "ab_priority"
+        case abNotifyOnFail = "ab_notify_on_fail"
+    }
+}
+
 struct AutobookDTO: Codable, Hashable {
     let partySize: Int?
     let days: String?

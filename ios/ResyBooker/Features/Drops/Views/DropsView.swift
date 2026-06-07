@@ -169,7 +169,10 @@ struct DropCard: View {
 // MARK: - Countdown detail
 
 struct DropCountdownView: View {
-    let drop: DropDTO
+    @State private var drop: DropDTO
+    @State private var showingAutoBook = false
+
+    init(drop: DropDTO) { _drop = State(initialValue: drop) }
 
     var body: some View {
         ZStack {
@@ -192,6 +195,9 @@ struct DropCountdownView: View {
             }
         }
         .navigationBarTitleDisplayMode(.inline)
+        .sheet(isPresented: $showingAutoBook) {
+            AutoBookSetupSheet(drop: drop) { updated in drop = updated }
+        }
     }
 
     // Live countdown ticking down to the next release.
@@ -275,6 +281,9 @@ struct DropCountdownView: View {
                 .font(.system(size: 13))
                 .foregroundStyle(RBColor.textSecondary)
                 .fixedSize(horizontal: false, vertical: true)
+            Button(armed ? "Edit auto-book" : "Set up auto-book") { showingAutoBook = true }
+                .buttonStyle(.rbSecondary)
+                .padding(.top, RBSpacing.xs)
         }
         .padding(RBSpacing.lg)
         .frame(maxWidth: .infinity, alignment: .leading)

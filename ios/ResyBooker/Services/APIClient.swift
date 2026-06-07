@@ -140,6 +140,12 @@ actor APIClient {
         return try decode(DropDTO.self, data)
     }
 
+    func updateDrop(_ id: Int, _ req: DropUpdateRequest) async throws -> DropDTO {
+        let body = try encoder.encode(req)
+        let data = try await request("/drops/\(id)", method: "PATCH", body: body)
+        return try decode(DropDTO.self, data)
+    }
+
     func deleteDrop(_ id: Int) async throws {
         _ = try await request("/drops/\(id)", method: "DELETE")
     }
