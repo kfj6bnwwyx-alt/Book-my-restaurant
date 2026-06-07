@@ -84,7 +84,7 @@ struct DropsView: View {
                     }
                 }
             case .failed where viewModel.isAuthError:
-                ConnectServerPrompt { showingSettings = true }.padding(.top, 40)
+                AuthPrompt { showingSettings = true }.padding(.top, 40)
             case .failed:
                 InlineErrorView(
                     title: "Couldn't load drops",

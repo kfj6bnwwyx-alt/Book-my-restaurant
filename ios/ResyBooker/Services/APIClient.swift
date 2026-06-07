@@ -70,6 +70,22 @@ actor APIClient {
         catch { throw APIError.decoding(String(describing: error)) }
     }
 
+    // MARK: - Key check
+
+    enum KeyCheck: Sendable { case ok, unauthorized, unreachable(String) }
+
+    /// Hits an authed endpoint to confirm the current app key is accepted.
+    func checkKey() async -> KeyCheck {
+        do {
+            _ = try await request("/pins")
+            return .ok
+        } catch let error as APIError {
+            return error.isUnauthorized ? .unauthorized : .unreachable(error.errorDescription ?? "Server unreachable")
+        } catch {
+            return .unreachable(error.localizedDescription)
+        }
+    }
+
     // MARK: - Pins
 
     func fetchPins() async throws -> [PinDTO] {

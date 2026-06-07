@@ -109,7 +109,7 @@ struct AvailabilityView: View {
             resultSections
 
         case .failed where viewModel.isAuthError:
-            ConnectServerPrompt { showingSettings = true }
+            AuthPrompt { showingSettings = true }
                 .padding(.top, 40)
 
         case .failed where !viewModel.results.isEmpty:

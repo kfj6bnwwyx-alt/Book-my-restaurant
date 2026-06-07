@@ -1,7 +1,6 @@
 import SwiftUI
 
-/// Shown on any tab when no app key is set, or when a request comes back 401.
-/// The key is global, so every screen routes the user to the same fix.
+/// Shown when no app key is set yet.
 struct ConnectServerPrompt: View {
     var action: () -> Void
 
@@ -16,11 +15,34 @@ struct ConnectServerPrompt: View {
     }
 }
 
-/// Enter the server app key (Keychain-backed, never stored in the repo).
+/// A key IS set but the server returned 401 — the key is wrong, not missing.
+/// Distinct message so a rejected key doesn't look like "no key".
+struct AuthPrompt: View {
+    var action: () -> Void
+
+    var body: some View {
+        if AppConfig.hasAppKey {
+            EmptyStateView(
+                systemImage: "key.slash",
+                title: "App key rejected",
+                message: "The server didn't accept your app key (401). Check that it matches Home Assistant, and restart the ResyBooker add-on after changing the key there.",
+                actionTitle: "Update app key",
+                action: action
+            )
+        } else {
+            ConnectServerPrompt(action: action)
+        }
+    }
+}
+
+/// Enter the server app key (Keychain-backed, never stored in the repo). On save
+/// it verifies the key against the server so a wrong key is caught immediately.
 struct ServerSettingsSheet: View {
     let onSaved: () -> Void
     @Environment(\.dismiss) private var dismiss
     @State private var key = ""
+    @State private var saving = false
+    @State private var error: String?
 
     var body: some View {
         VStack(alignment: .leading, spacing: RBSpacing.md) {
@@ -32,13 +54,6 @@ struct ServerSettingsSheet: View {
                 .font(.system(size: 13.5))
                 .foregroundStyle(RBColor.textSecondary)
 
-            labeledRow("Server") {
-                Text(AppConfig.apiBaseURL.absoluteString)
-                    .font(.system(size: 14))
-                    .foregroundStyle(RBColor.textMuted)
-                    .lineLimit(1)
-                    .truncationMode(.middle)
-            }
             labeledRow("App key") {
                 TextField("Paste app key", text: $key)
                     .font(.system(size: 14, design: .monospaced))
@@ -46,13 +61,21 @@ struct ServerSettingsSheet: View {
                     .textInputAutocapitalization(.never)
                     .autocorrectionDisabled()
                     .submitLabel(.done)
+                    .onSubmit(save)
+            }
+
+            if let error {
+                Text(error)
+                    .font(.system(size: 13))
+                    .foregroundStyle(RBColor.red)
+                    .fixedSize(horizontal: false, vertical: true)
             }
 
             Spacer(minLength: 0)
 
-            Button("Save", action: save)
+            Button(saving ? "Verifying…" : "Save", action: save)
                 .buttonStyle(.rbPrimary)
-                .disabled(key.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                .disabled(saving || key.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
         }
         .padding(20)
         .tint(RBColor.accent)
@@ -76,9 +99,24 @@ struct ServerSettingsSheet: View {
     }
 
     private func save() {
-        AppConfig.setAppKey(key)
-        onSaved()
-        dismiss()
+        let trimmed = key.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty, !saving else { return }
+        AppConfig.setAppKey(trimmed)
+        saving = true
+        error = nil
+        Task {
+            let result = await APIClient.shared.checkKey()
+            saving = false
+            switch result {
+            case .ok:
+                onSaved()
+                dismiss()
+            case .unauthorized:
+                error = "The server rejected that key (401). Make sure it matches Home Assistant exactly, then restart the ResyBooker add-on (it only reads the key on start)."
+            case .unreachable(let message):
+                error = "Saved, but couldn't reach the server: \(message)"
+            }
+        }
     }
 }
 
@@ -87,7 +125,7 @@ extension View {
     func serverSettingsSheet(isPresented: Binding<Bool>, onSaved: @escaping () -> Void) -> some View {
         sheet(isPresented: isPresented) {
             ServerSettingsSheet(onSaved: onSaved)
-                .presentationDetents([.height(340)])
+                .presentationDetents([.medium, .large])
                 .presentationBackground(RBColor.surface)
                 .presentationDragIndicator(.visible)
         }
