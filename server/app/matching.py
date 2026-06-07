@@ -5,6 +5,8 @@ feature carries a business name, address, and coordinates. We fuzzy-match the
 name and bias by proximity, then let the app confirm ambiguous matches once.
 """
 
+import csv
+import io
 import json
 import math
 
@@ -33,8 +35,30 @@ def load_pins_from_geojson(raw: dict) -> list:
     return pins
 
 
+def load_pins_from_csv(text: str) -> list:
+    """Current Google Takeout 'Saved' list export (Title,Note,URL,Tags,Comment).
+
+    It carries only names -- no coordinates or addresses -- so pins import with
+    lat/lng 0 (a 'no location' sentinel) and rely on the name. Candidate search
+    defaults to NYC when a pin has no coordinates, and the user confirms each
+    match in the link screen.
+    """
+    reader = csv.DictReader(io.StringIO(text))
+    pins = []
+    for row in reader:
+        name = (row.get("Title") or row.get("title") or "").strip()
+        if not name:
+            continue
+        pins.append({"name": name, "address": None, "lat": 0.0, "lng": 0.0})
+    return pins
+
+
 def load_pins_from_text(text: str) -> list:
-    return load_pins_from_geojson(json.loads(text))
+    """Accept either the legacy GeoJSON export or the current Takeout CSV."""
+    stripped = text.lstrip()
+    if stripped[:1] in ("{", "["):
+        return load_pins_from_geojson(json.loads(text))
+    return load_pins_from_csv(text)
 
 
 def _haversine_km(lat1, lng1, lat2, lng2) -> float:

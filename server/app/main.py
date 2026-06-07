@@ -217,10 +217,13 @@ async def pin_candidates(
     pin = session.get(Pin, pin_id)
     if not pin:
         raise HTTPException(404, "pin not found")
+    # Pins imported from the names-only CSV have lat/lng 0; search near NYC then.
+    search_lat = pin.lat or 40.7128
+    search_lng = pin.lng or -74.006
     if provider == "resy":
-        cands = await resy.search_venues(pin.name, pin.lat, pin.lng)
+        cands = await resy.search_venues(pin.name, search_lat, search_lng)
     else:
-        cands = await opentable.search_restaurants(pin.name, pin.lat, pin.lng)
+        cands = await opentable.search_restaurants(pin.name, search_lat, search_lng)
     ranked = rank_matches({"name": pin.name, "lat": pin.lat, "lng": pin.lng}, cands)
     return [{"score": s, **c} for s, c in ranked]
 
