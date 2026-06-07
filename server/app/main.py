@@ -84,6 +84,12 @@ class LinkBody(BaseModel):
     linked_name: Optional[str] = None
 
 
+class PinLocationBody(BaseModel):
+    lat: float
+    lng: float
+    address: Optional[str] = None
+
+
 class BookBody(BaseModel):
     pin_id: Optional[int] = None
     venue_id: str
@@ -234,6 +240,21 @@ def link_pin(pin_id: int, body: LinkBody, session: Session = Depends(get_session
     pin.venue_id = body.venue_id
     pin.linked_name = body.linked_name
     pin.linked_at = datetime.utcnow()
+    session.add(pin)
+    session.commit()
+    return {"ok": True, "pin_id": pin_id}
+
+
+@app.patch("/pins/{pin_id}", dependencies=[Depends(require_key)])
+def update_pin(pin_id: int, body: PinLocationBody, session: Session = Depends(get_session)):
+    """Backfill coordinates for a pin (used by the app's 'resolve locations')."""
+    pin = session.get(Pin, pin_id)
+    if not pin:
+        raise HTTPException(404, "pin not found")
+    pin.lat = body.lat
+    pin.lng = body.lng
+    if body.address:
+        pin.address = body.address
     session.add(pin)
     session.commit()
     return {"ok": True, "pin_id": pin_id}
