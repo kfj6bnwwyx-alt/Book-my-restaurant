@@ -95,6 +95,12 @@ struct LinkRequest: Codable {
     }
 }
 
+struct PinLocationRequest: Codable {
+    let lat: Double
+    let lng: Double
+    let address: String?
+}
+
 struct BookRequest: Codable {
     let pinId: Int?
     let venueId: String

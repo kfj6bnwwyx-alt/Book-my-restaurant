@@ -1,6 +1,7 @@
 import Foundation
 import SwiftData
 import SwiftUI
+import CoreLocation
 
 @MainActor
 @Observable
@@ -19,6 +20,33 @@ final class PinsViewModel {
     }
 
     var linkedCount: Int { pins.filter { $0.linked }.count }
+
+    /// Spots imported by name (CSV) have no coordinates yet (lat/lng 0).
+    var unlocatedCount: Int { pins.filter { $0.lat == 0 && $0.lng == 0 }.count }
+
+    /// Look up coordinates for name-only spots via Apple Maps and patch them on
+    /// the server, so they appear on the map and rank better. Returns how many
+    /// were resolved.
+    func resolveMissingLocations() async -> Int {
+        let search = LocalSearch()
+        var resolved = 0
+        for pin in pins where pin.lat == 0 && pin.lng == 0 {
+            if let match = await search.resolve(text: pin.name) {
+                do {
+                    try await api.updatePinLocation(
+                        pinId: pin.id,
+                        lat: match.coordinate.latitude,
+                        lng: match.coordinate.longitude,
+                        address: match.address.isEmpty ? nil : match.address
+                    )
+                    resolved += 1
+                } catch {}
+            }
+            try? await Task.sleep(for: .milliseconds(250))
+        }
+        await load()
+        return resolved
+    }
 
     func load() async {
         isLoading = true

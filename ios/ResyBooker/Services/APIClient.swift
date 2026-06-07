@@ -112,6 +112,11 @@ actor APIClient {
         _ = try await request("/pins/\(pinId)/link", method: "POST", body: body)
     }
 
+    func updatePinLocation(pinId: Int, lat: Double, lng: Double, address: String?) async throws {
+        let body = try encoder.encode(PinLocationRequest(lat: lat, lng: lng, address: address))
+        _ = try await request("/pins/\(pinId)", method: "PATCH", body: body)
+    }
+
     // MARK: - Availability
 
     func availability(

@@ -128,6 +128,8 @@ struct SettingsSheet: View {
     @Environment(\.dismiss) private var dismiss
     @State private var showingKey = false
     @State private var showingImport = false
+    @State private var resolving = false
+    @State private var resolveMessage: String?
 
     var body: some View {
         NavigationStack {
@@ -148,6 +150,9 @@ struct SettingsSheet: View {
                             detail: "Bulk-add a saved list (CSV)",
                             detailColor: RBColor.textMuted) {
                             showingImport = true
+                        }
+                        if viewModel.unlocatedCount > 0 {
+                            resolveRow
                         }
                     }
                     .padding(18)
@@ -174,6 +179,43 @@ struct SettingsSheet: View {
             }
         }
         .tint(RBColor.accent)
+    }
+
+    private var resolveRow: some View {
+        Button {
+            guard !resolving else { return }
+            resolving = true
+            resolveMessage = nil
+            Task {
+                let n = await viewModel.resolveMissingLocations()
+                resolveMessage = "Added a location to \(n) spot\(n == 1 ? "" : "s")"
+                resolving = false
+            }
+        } label: {
+            HStack(spacing: RBSpacing.md) {
+                Image(systemName: "mappin.and.ellipse")
+                    .font(.system(size: 17))
+                    .foregroundStyle(RBColor.accent)
+                    .frame(width: 26)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(resolving ? "Resolving…" : "Resolve missing locations")
+                        .font(.system(size: 16, weight: .semibold)).foregroundStyle(RBColor.textPrimary)
+                    Text(resolveMessage ?? "\(viewModel.unlocatedCount) spots have no location yet")
+                        .font(.system(size: 12.5)).foregroundStyle(RBColor.textMuted)
+                }
+                Spacer()
+                if resolving {
+                    ProgressView().tint(RBColor.accent)
+                } else {
+                    Image(systemName: "chevron.right").font(.system(size: 14, weight: .semibold)).foregroundStyle(RBColor.textMuted)
+                }
+            }
+            .padding(14)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .rbCard(fill: RBColor.surface)
+        }
+        .buttonStyle(.plain)
+        .disabled(resolving)
     }
 
     private func row(icon: String, title: String, detail: String, detailColor: Color, action: @escaping () -> Void) -> some View {
