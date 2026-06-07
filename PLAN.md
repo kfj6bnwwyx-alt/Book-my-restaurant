@@ -23,7 +23,7 @@ you. Tell Claude "add X to the plan" any time and it lands here.
 - [x] **Share-to-app** extension code (`ShareToResyBooker`) — queues shared places via App Group
 
 ## Needs you (setup)
-- [ ] **Rebuild the HA add-on** to activate CSV import + resolve-locations endpoint
+- [x] **Rebuild the HA add-on** — done; CSV import, NYC fallback, and `PATCH /pins/{id}` are live
 - [ ] **Share extension App Group**: add `group.house-connect.Book-my-restaurant` to BOTH targets (app + ShareToResyBooker), then ⌘R
 - [ ] **Open `design/Book-my-restaurant.pen` in Pencil** so Claude can align the design to the app (MCP only edits the open file)
 - [ ] **Replace the expired Resy card** (Amex …3001, exp 12/2025): add a current card at resy.com → `GET /resy/payment-methods` → update `resy_payment_method_id` in the add-on config. Until then the final **booking step fails** (availability/drops/watches work).
