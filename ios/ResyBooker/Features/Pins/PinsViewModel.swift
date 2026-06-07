@@ -32,16 +32,19 @@ final class PinsViewModel {
         }
     }
 
-    @discardableResult
-    func importGeoJSON(_ text: String) async -> Bool {
+    /// Returns the parse result on success (imported / total_parsed), or nil on
+    /// failure (with `errorMessage` set). The counts let the import sheet tell the
+    /// user exactly what happened: new places added, already-imported, or a file
+    /// with no recognizable places.
+    func importGeoJSON(_ text: String) async -> ImportResponse? {
         do {
             let resp = try await api.importPins(geojson: text)
             importSummary = "Imported \(resp.imported) of \(resp.totalParsed) places."
             await load()
-            return true
+            return resp
         } catch {
             fail(error)
-            return false
+            return nil
         }
     }
 

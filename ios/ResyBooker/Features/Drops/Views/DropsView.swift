@@ -140,14 +140,7 @@ struct DropCard: View {
         }
         .padding(RBSpacing.lg)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(
-            RoundedRectangle(cornerRadius: RBRadius.card, style: .continuous)
-                .fill(RBColor.surface)
-                .overlay(
-                    RoundedRectangle(cornerRadius: RBRadius.card, style: .continuous)
-                        .stroke(RBColor.border, lineWidth: 1)
-                )
-        )
+        .rbCard()
         .contentShape(Rectangle())
     }
 }
@@ -202,7 +195,7 @@ struct DropCountdownView: View {
         }
         .padding(.vertical, RBSpacing.xl)
         .frame(maxWidth: .infinity)
-        .background(cardBackground)
+        .rbCard()
     }
 
     private func countdownRow(secondsRemaining s: Int) -> some View {
@@ -242,7 +235,7 @@ struct DropCountdownView: View {
             infoRow("Release time", drop.releaseTimeDisplay)
         }
         .padding(.horizontal, RBSpacing.lg)
-        .background(cardBackground)
+        .rbCard()
     }
 
     @ViewBuilder
@@ -264,10 +257,7 @@ struct DropCountdownView: View {
         }
         .padding(RBSpacing.lg)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(
-            RoundedRectangle(cornerRadius: RBRadius.card, style: .continuous)
-                .fill(RBColor.surface2)
-        )
+        .rbCard(fill: RBColor.surface2, bordered: false)
     }
 
     private var autobookSummary: String {
@@ -298,15 +288,6 @@ struct DropCountdownView: View {
 
     private var divider: some View {
         Rectangle().fill(RBColor.border).frame(height: 1)
-    }
-
-    private var cardBackground: some View {
-        RoundedRectangle(cornerRadius: RBRadius.card, style: .continuous)
-            .fill(RBColor.surface)
-            .overlay(
-                RoundedRectangle(cornerRadius: RBRadius.card, style: .continuous)
-                    .stroke(RBColor.border, lineWidth: 1)
-            )
     }
 
     private var releaseDateText: String {

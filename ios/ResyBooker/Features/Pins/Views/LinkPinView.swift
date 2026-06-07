@@ -139,14 +139,7 @@ struct CandidateRow: View {
         }
         .padding(RBSpacing.lg)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(
-            RoundedRectangle(cornerRadius: RBRadius.small, style: .continuous)
-                .fill(RBColor.surface)
-                .overlay(
-                    RoundedRectangle(cornerRadius: RBRadius.small, style: .continuous)
-                        .stroke(RBColor.border, lineWidth: 1)
-                )
-        )
+        .rbCard(radius: RBRadius.small)
         .contentShape(Rectangle())
     }
 

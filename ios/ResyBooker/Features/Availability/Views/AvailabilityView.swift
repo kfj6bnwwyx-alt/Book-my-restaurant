@@ -59,14 +59,7 @@ struct AvailabilityView: View {
             }
             .padding(.vertical, 13)
             .padding(.horizontal, 16)
-            .background(
-                RoundedRectangle(cornerRadius: RBRadius.card, style: .continuous)
-                    .fill(RBColor.surface)
-                    .overlay(
-                        RoundedRectangle(cornerRadius: RBRadius.card, style: .continuous)
-                            .stroke(RBColor.border, lineWidth: 1)
-                    )
-            )
+            .rbCard()
         }
         .buttonStyle(.plain)
     }
@@ -116,6 +109,13 @@ struct AvailabilityView: View {
             ConnectServerPrompt { showingSettings = true }
                 .padding(.top, 40)
 
+        case .failed where !viewModel.results.isEmpty:
+            // A failed *refresh* keeps the last good results visible.
+            VStack(alignment: .leading, spacing: 11) {
+                failedBanner
+                resultSections
+            }
+
         case .failed:
             InlineErrorView(
                 title: "Couldn't check tables",
@@ -124,6 +124,24 @@ struct AvailabilityView: View {
             )
             .padding(.top, 40)
         }
+    }
+
+    private var failedBanner: some View {
+        HStack(spacing: 10) {
+            Image(systemName: "exclamationmark.triangle.fill")
+                .font(.system(size: 16))
+                .foregroundStyle(RBColor.amber)
+            Text("Couldn't refresh — showing your last results.")
+                .font(.system(size: 13))
+                .foregroundStyle(RBColor.textSecondary)
+            Spacer()
+            Button("Retry") { Task { await viewModel.search() } }
+                .font(.system(size: 13, weight: .semibold))
+                .foregroundStyle(RBColor.accent)
+        }
+        .padding(12)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .rbCard(fill: RBColor.amberSoft, bordered: false)
     }
 
     @ViewBuilder
@@ -173,10 +191,7 @@ struct AvailabilityView: View {
         }
         .padding(16)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(
-            RoundedRectangle(cornerRadius: RBRadius.card, style: .continuous)
-                .fill(RBColor.surface2)
-        )
+        .rbCard(fill: RBColor.surface2, bordered: false)
     }
 }
 

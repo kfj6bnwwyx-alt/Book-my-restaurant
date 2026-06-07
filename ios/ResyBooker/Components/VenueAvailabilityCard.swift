@@ -42,7 +42,7 @@ struct VenueAvailabilityCard: View {
             }
         }
         .padding(RBSpacing.lg)
-        .background(cardBackground)
+        .rbCard()
     }
 
     private var openBadge: some View {
@@ -75,7 +75,7 @@ struct VenueAvailabilityCard: View {
                 .fixedSize(horizontal: false, vertical: true)
         }
         .padding(RBSpacing.lg)
-        .background(cardBackground)
+        .rbCard()
         .opacity(0.85)
     }
 
@@ -96,12 +96,4 @@ struct VenueAvailabilityCard: View {
         }
     }
 
-    private var cardBackground: some View {
-        RoundedRectangle(cornerRadius: RBRadius.card, style: .continuous)
-            .fill(RBColor.surface)
-            .overlay(
-                RoundedRectangle(cornerRadius: RBRadius.card, style: .continuous)
-                    .stroke(RBColor.border, lineWidth: 1)
-            )
-    }
 }

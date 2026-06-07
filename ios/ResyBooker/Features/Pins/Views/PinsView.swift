@@ -34,6 +34,7 @@ struct PinsView: View {
                         toastText = vm.importSummary ?? "Spots imported"
                         showToast = true
                     }
+                    .presentationDetents([.large])
                     .presentationBackground(RBColor.surface)
                     .presentationDragIndicator(.visible)
                 }
@@ -59,7 +60,10 @@ struct PinsView: View {
                 .foregroundStyle(RBColor.textPrimary)
             Spacer()
             iconButton("gearshape", label: "Server settings") { showingSettings = true }
-            iconButton("square.and.arrow.down", label: "Import spots") { showingImporter = true }
+            iconButton("square.and.arrow.down", label: "Import spots") {
+                // No key means every import 401s; send them to set it up first.
+                if AppConfig.hasAppKey { showingImporter = true } else { showingSettings = true }
+            }
         }
     }
 
@@ -69,14 +73,7 @@ struct PinsView: View {
                 .font(.system(size: 17, weight: .semibold))
                 .foregroundStyle(RBColor.accent)
                 .frame(width: 42, height: 42)
-                .background(
-                    RoundedRectangle(cornerRadius: RBRadius.small, style: .continuous)
-                        .fill(RBColor.surface)
-                        .overlay(
-                            RoundedRectangle(cornerRadius: RBRadius.small, style: .continuous)
-                                .stroke(RBColor.border, lineWidth: 1)
-                        )
-                )
+                .rbCard(radius: RBRadius.small)
         }
         .buttonStyle(.plain)
         .accessibilityLabel(label)
@@ -144,14 +141,7 @@ struct PinsView: View {
         }
         .padding(.vertical, 14)
         .padding(.horizontal, 16)
-        .background(
-            RoundedRectangle(cornerRadius: RBRadius.small, style: .continuous)
-                .fill(RBColor.surface)
-                .overlay(
-                    RoundedRectangle(cornerRadius: RBRadius.small, style: .continuous)
-                        .stroke(RBColor.border, lineWidth: 1)
-                )
-        )
+        .rbCard(radius: RBRadius.small)
     }
 }
 
@@ -188,14 +178,7 @@ struct PinRow: View {
         .padding(.vertical, 14)
         .padding(.horizontal, 16)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(
-            RoundedRectangle(cornerRadius: RBRadius.small, style: .continuous)
-                .fill(RBColor.surface)
-                .overlay(
-                    RoundedRectangle(cornerRadius: RBRadius.small, style: .continuous)
-                        .stroke(RBColor.border, lineWidth: 1)
-                )
-        )
+        .rbCard(radius: RBRadius.small)
         .contentShape(Rectangle())
         .accessibilityElement(children: .combine)
     }
@@ -205,15 +188,50 @@ struct PinRow: View {
 
 struct ImportSheet: View {
     let viewModel: PinsViewModel
-    let onSuccess: () -> Void
+    var onSuccess: () -> Void = {}
     @Environment(\.dismiss) private var dismiss
 
+    private enum Phase: Equatable {
+        case editing
+        case importing
+        case done(imported: Int, total: Int)
+        case failed(String)
+    }
+
     @State private var text = ""
+    @State private var phase: Phase = .editing
     @State private var invalid = false
-    @State private var importing = false
-    @State private var serverError: String?
 
     var body: some View {
+        VStack(alignment: .leading, spacing: RBSpacing.md) {
+            switch phase {
+            case .editing:
+                editor
+            case .importing:
+                resultView(
+                    icon: nil, tint: RBColor.accent,
+                    title: "Importing…",
+                    message: "Sending your places to the server."
+                )
+            case let .done(imported, total):
+                doneView(imported: imported, total: total)
+            case let .failed(message):
+                resultView(
+                    icon: "exclamationmark.triangle.fill", tint: RBColor.red,
+                    title: "Import failed", message: message,
+                    primary: ("Try again", { phase = .editing })
+                )
+            }
+        }
+        .padding(20)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .tint(RBColor.accent)
+        .animation(.easeOut(duration: 0.2), value: phase)
+    }
+
+    // MARK: Editing
+
+    private var editor: some View {
         VStack(alignment: .leading, spacing: RBSpacing.md) {
             Text("Import spots")
                 .font(.system(size: 22, weight: .bold))
@@ -228,7 +246,7 @@ struct ImportSheet: View {
                 .foregroundStyle(RBColor.textPrimary)
                 .scrollContentBackground(.hidden)
                 .padding(8)
-                .frame(minHeight: 160)
+                .frame(minHeight: 180)
                 .background(
                     RoundedRectangle(cornerRadius: RBRadius.small, style: .continuous)
                         .fill(RBColor.surface2)
@@ -239,45 +257,104 @@ struct ImportSheet: View {
                 )
 
             if invalid {
-                inlineMessage("That doesn't look like valid GeoJSON. Export your list from Google Takeout as GeoJSON and paste the whole file.", color: RBColor.red)
-            } else if let serverError {
-                inlineMessage(serverError, color: RBColor.amber)
+                Text("That doesn't look like valid GeoJSON. Paste the whole exported file.")
+                    .font(.system(size: 12.5))
+                    .foregroundStyle(RBColor.red)
+                    .fixedSize(horizontal: false, vertical: true)
             }
 
-            Button(importing ? "Importing…" : "Import", action: runImport)
+            Button("Import", action: runImport)
                 .buttonStyle(.rbPrimary)
-                .disabled(text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || importing)
+                .disabled(text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
         }
-        .padding(20)
-        .tint(RBColor.accent)
     }
 
-    private func inlineMessage(_ message: String, color: Color) -> some View {
-        Text(message)
-            .font(.system(size: 12.5))
-            .foregroundStyle(color)
-            .fixedSize(horizontal: false, vertical: true)
+    // MARK: Result states
+
+    @ViewBuilder
+    private func doneView(imported: Int, total: Int) -> some View {
+        if total == 0 {
+            // Valid JSON but the server found no places to import → wrong file.
+            resultView(
+                icon: "doc.questionmark", tint: RBColor.amber,
+                title: "No places found",
+                message: "We couldn't find any saved places in that file. In Google Takeout, export the GeoJSON of your saved list (Saved → your list → Export), then paste the whole file.",
+                primary: ("Try again", { phase = .editing })
+            )
+        } else if imported == 0 {
+            resultView(
+                icon: "checkmark.circle.fill", tint: RBColor.success,
+                title: "Already up to date",
+                message: "All \(total) places in that file are already imported.",
+                primary: ("Done", finish)
+            )
+        } else {
+            let suffix = imported == 1 ? "place" : "places"
+            let detail = total > imported
+                ? "\(imported) new of \(total) in the file."
+                : "All \(total) places added."
+            resultView(
+                icon: "checkmark.circle.fill", tint: RBColor.success,
+                title: "Imported \(imported) \(suffix)",
+                message: detail,
+                primary: ("View spots", finish)
+            )
+        }
+    }
+
+    private func resultView(
+        icon: String?, tint: Color, title: String, message: String,
+        primary: (String, () -> Void)? = nil
+    ) -> some View {
+        VStack(spacing: RBSpacing.lg) {
+            ZStack {
+                Circle().fill(RBColor.surface2).frame(width: 84, height: 84)
+                if let icon {
+                    Image(systemName: icon).font(.system(size: 34)).foregroundStyle(tint)
+                } else {
+                    ProgressView().tint(tint)
+                }
+            }
+            VStack(spacing: RBSpacing.xs) {
+                Text(title)
+                    .font(.system(size: 18, weight: .semibold))
+                    .foregroundStyle(RBColor.textPrimary)
+                Text(message)
+                    .font(.system(size: 14))
+                    .foregroundStyle(RBColor.textSecondary)
+                    .multilineTextAlignment(.center)
+            }
+            .frame(maxWidth: 320)
+            if let primary {
+                Button(primary.0, action: primary.1)
+                    .buttonStyle(.rbPrimary)
+                    .frame(maxWidth: 240)
+            }
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, RBSpacing.section)
+    }
+
+    private func finish() {
+        onSuccess()
+        dismiss()
     }
 
     private func runImport() {
         invalid = false
-        serverError = nil
-        // Client-side guard so an obviously-wrong paste gets a clear message
-        // instead of a server round-trip / opaque 500.
+        // Client-side guard catches an obviously-wrong paste before a round-trip;
+        // the server's total_parsed count is the authoritative GeoJSON validation.
         guard let data = text.data(using: .utf8),
               (try? JSONSerialization.jsonObject(with: data)) != nil else {
             invalid = true
             return
         }
-        importing = true
+        phase = .importing
         Task {
-            let ok = await viewModel.importGeoJSON(text)
-            importing = false
-            if ok {
-                onSuccess()
-                dismiss()
+            if let resp = await viewModel.importGeoJSON(text) {
+                phase = .done(imported: resp.imported, total: resp.totalParsed)
             } else {
-                serverError = viewModel.errorMessage ?? "Import failed."
+                phase = .failed(viewModel.errorMessage ?? "Import failed.")
             }
         }
     }
