@@ -8,10 +8,10 @@ struct BookingConfirmView: View {
     let onDismiss: () -> Void
 
     @Environment(\.dismiss) private var dismiss
-    @State private var state: State = .ready
+    @State private var state: Phase = .ready
     @State private var resultMessage: String?
 
-    enum State { case ready, booking, done, failed }
+    enum Phase { case ready, booking, done, failed }
 
     var body: some View {
         NavigationStack {

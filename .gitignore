@@ -1,3 +1,7 @@
+# Design files (Pencil .pen) — kept local, synced via OneDrive, not in the code repo
+design/
+*.pen
+
 # Python
 __pycache__/
 *.py[cod]
