@@ -35,6 +35,9 @@ struct AvailabilityView: View {
             BookingConfirmView(
                 venue: pair.venue, slot: pair.slot, day: pair.day, partySize: pair.partySize
             ) { pendingBooking = nil }
+            .presentationDetents([.medium, .large])
+            .presentationBackground(RBColor.surface)
+            .presentationDragIndicator(.visible)
         }
         .serverSettingsSheet(isPresented: $showingSettings) {
             Task { await viewModel.search() }
