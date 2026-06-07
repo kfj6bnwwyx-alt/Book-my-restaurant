@@ -1,5 +1,6 @@
 import SwiftUI
 import SwiftData
+import CoreLocation
 
 /// App shell: a dark surface with the three feature screens and a floating
 /// capsule tab bar overlaid at the bottom.
@@ -11,6 +12,7 @@ import SwiftData
 /// real height so nothing hides behind it.
 struct RootView: View {
     @State private var tab: RBTab = .tables
+    @Environment(\.scenePhase) private var scenePhase
 
     var body: some View {
         ZStack(alignment: .bottom) {
@@ -29,6 +31,33 @@ struct RootView: View {
         }
         .tint(RBColor.accent)
         .preferredColorScheme(.dark)
+        .task { await Self.importPendingShares() }
+        .onChange(of: scenePhase) { _, phase in
+            if phase == .active { Task { await Self.importPendingShares() } }
+        }
+    }
+
+    /// Drain places shared in via the extension. Geocodes any without
+    /// coordinates, imports them, and keeps any that fail for the next launch.
+    private static func importPendingShares() async {
+        let pending = PendingSpots.all()
+        guard !pending.isEmpty, AppConfig.hasAppKey else { return }
+        var remaining: [PendingSpot] = []
+        for spot in pending {
+            let lat: Double
+            let lng: Double
+            if let la = spot.lat, let lo = spot.lng {
+                (lat, lng) = (la, lo)
+            } else if let location = try? await CLGeocoder().geocodeAddressString(spot.name).first?.location {
+                (lat, lng) = (location.coordinate.latitude, location.coordinate.longitude)
+            } else {
+                (lat, lng) = (40.7128, -74.006)
+            }
+            let geojson = SpotGeoJSON.oneFeature(name: spot.name, lat: lat, lng: lng)
+            do { _ = try await APIClient.shared.importPins(geojson: geojson) }
+            catch { remaining.append(spot) }
+        }
+        PendingSpots.save(remaining)
     }
 
     /// Keeps each tab in the hierarchy (state preserved) while hiding the

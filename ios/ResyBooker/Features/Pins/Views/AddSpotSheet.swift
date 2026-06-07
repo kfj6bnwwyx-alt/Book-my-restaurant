@@ -76,7 +76,7 @@ struct AddSpotSheet: View {
         error = nil
         Task {
             let coord = await geocode(name: trimmedName, address: address)
-            let geojson = Self.oneFeatureGeoJSON(name: trimmedName, address: address, lat: coord.latitude, lng: coord.longitude)
+            let geojson = SpotGeoJSON.oneFeature(name: trimmedName, address: address, lat: coord.latitude, lng: coord.longitude)
             if await viewModel.importGeoJSON(geojson) != nil {
                 onAdded()
                 dismiss()
@@ -95,19 +95,5 @@ struct AddSpotSheet: View {
             return location.coordinate
         }
         return CLLocationCoordinate2D(latitude: 40.7128, longitude: -74.006)
-    }
-
-    private static func oneFeatureGeoJSON(name: String, address: String, lat: Double, lng: Double) -> String {
-        let location: [String: Any] = address.isEmpty
-            ? ["Business Name": name]
-            : ["Business Name": name, "Address": address]
-        let feature: [String: Any] = [
-            "type": "Feature",
-            "geometry": ["type": "Point", "coordinates": [lng, lat]],
-            "properties": ["Location": location],
-        ]
-        let root: [String: Any] = ["type": "FeatureCollection", "features": [feature]]
-        let data = (try? JSONSerialization.data(withJSONObject: root)) ?? Data()
-        return String(data: data, encoding: .utf8) ?? "{}"
     }
 }
