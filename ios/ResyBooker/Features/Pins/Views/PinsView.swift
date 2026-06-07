@@ -10,6 +10,7 @@ struct PinsView: View {
     @State private var viewModel: PinsViewModel?
     @State private var showingImporter = false
     @State private var showingSettings = false
+    @State private var showingAdd = false
     @State private var showToast = false
     @State private var toastText = ""
 
@@ -42,6 +43,14 @@ struct PinsView: View {
             .serverSettingsSheet(isPresented: $showingSettings) {
                 Task { await viewModel?.load() }
             }
+            .sheet(isPresented: $showingAdd) {
+                if let vm = viewModel {
+                    AddSpotSheet(viewModel: vm) {
+                        toastText = "Spot added"
+                        showToast = true
+                    }
+                }
+            }
             .task {
                 if viewModel == nil {
                     viewModel = PinsViewModel(modelContext: modelContext)
@@ -59,11 +68,14 @@ struct PinsView: View {
                 .font(.system(size: 28, weight: .bold))
                 .foregroundStyle(RBColor.textPrimary)
             Spacer()
-            iconButton("gearshape", label: "Server settings") { showingSettings = true }
+            iconButton("plus", label: "Add a spot") {
+                if AppConfig.hasAppKey { showingAdd = true } else { showingSettings = true }
+            }
             iconButton("square.and.arrow.down", label: "Import spots") {
                 // No key means every import 401s; send them to set it up first.
                 if AppConfig.hasAppKey { showingImporter = true } else { showingSettings = true }
             }
+            iconButton("gearshape", label: "Server settings") { showingSettings = true }
         }
     }
 
