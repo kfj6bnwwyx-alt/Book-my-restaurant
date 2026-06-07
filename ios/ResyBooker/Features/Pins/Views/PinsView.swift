@@ -11,6 +11,7 @@ struct PinsView: View {
     @State private var showingSettings = false
     @State private var showingSettingsMenu = false
     @State private var showingAdd = false
+    @State private var showingMap = false
     @State private var showToast = false
     @State private var toastText = ""
 
@@ -45,6 +46,11 @@ struct PinsView: View {
                     }
                 }
             }
+            .fullScreenCover(isPresented: $showingMap) {
+                if let vm = viewModel {
+                    SpotsMapView(pins: vm.pins, viewModel: vm)
+                }
+            }
             .task {
                 if viewModel == nil {
                     viewModel = PinsViewModel(modelContext: modelContext)
@@ -65,6 +71,7 @@ struct PinsView: View {
             iconButton("plus", label: "Add a spot") {
                 if AppConfig.hasAppKey { showingAdd = true } else { showingSettings = true }
             }
+            iconButton("map", label: "Spots map") { showingMap = true }
             iconButton("gearshape", label: "Settings") { showingSettingsMenu = true }
         }
     }

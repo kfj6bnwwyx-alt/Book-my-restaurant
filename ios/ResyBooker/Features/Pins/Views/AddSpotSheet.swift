@@ -1,42 +1,53 @@
 import SwiftUI
-import CoreLocation
+import MapKit
 
-/// Add a single spot by hand. Forward-geocodes the name/address on device so the
-/// pin has coordinates for venue matching, then saves it through the existing
-/// import endpoint (a one-feature GeoJSON) — no server change needed.
+/// Add a spot by searching Apple Maps (autocomplete, no API key). Picking a
+/// result gives an exact name + coordinates; "Add as-is" falls back to a plain
+/// search/geocode. Saves through the existing import endpoint (no server change).
 struct AddSpotSheet: View {
     let viewModel: PinsViewModel
     var onAdded: () -> Void
     @Environment(\.dismiss) private var dismiss
 
-    @State private var name = ""
-    @State private var address = ""
-    @State private var saving = false
+    @State private var query = ""
+    @State private var search = LocalSearch()
+    @State private var adding = false
     @State private var error: String?
 
     var body: some View {
         NavigationStack {
             ZStack {
                 RBColor.bg.ignoresSafeArea()
-                ScrollView {
-                    VStack(alignment: .leading, spacing: RBSpacing.lg) {
-                        field("Name", placeholder: "Restaurant name", text: $name)
-                        field("Address or city (optional)", placeholder: "e.g. 5 Greenwich Ave, New York", text: $address)
-                        Text("We look up the location on device so the spot can match Resy and OpenTable.")
+                VStack(alignment: .leading, spacing: RBSpacing.md) {
+                    searchField
+                    if let error {
+                        Text(error)
                             .font(.system(size: 13))
-                            .foregroundStyle(RBColor.textSecondary)
-                        if let error {
-                            Text(error)
-                                .font(.system(size: 13))
-                                .foregroundStyle(RBColor.red)
-                                .fixedSize(horizontal: false, vertical: true)
-                        }
-                        Button(saving ? "Adding…" : "Add spot", action: save)
-                            .buttonStyle(.rbPrimary)
-                            .disabled(saving || name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
-                            .padding(.top, RBSpacing.xs)
+                            .foregroundStyle(RBColor.red)
+                            .fixedSize(horizontal: false, vertical: true)
+                            .padding(.horizontal, 18)
                     }
-                    .padding(18)
+                    ScrollView {
+                        LazyVStack(spacing: 10) {
+                            ForEach(Array(search.results.enumerated()), id: \.offset) { _, completion in
+                                resultRow(title: completion.title, subtitle: completion.subtitle) {
+                                    Task { await pick(completion) }
+                                }
+                            }
+                            if !trimmedQuery.isEmpty {
+                                resultRow(title: "Add “\(trimmedQuery)”", subtitle: "Use this name as-is") {
+                                    Task { await addRaw() }
+                                }
+                            }
+                        }
+                        .padding(.horizontal, 18)
+                        .padding(.bottom, 18)
+                    }
+                }
+                .padding(.top, RBSpacing.sm)
+                .disabled(adding)
+                if adding {
+                    ProgressView().controlSize(.large).tint(RBColor.accent)
                 }
             }
             .navigationTitle("Add a spot")
@@ -50,50 +61,77 @@ struct AddSpotSheet: View {
         .tint(RBColor.accent)
     }
 
-    private func field(_ label: String, placeholder: String, text: Binding<String>) -> some View {
-        VStack(alignment: .leading, spacing: 6) {
-            Text(label)
-                .font(.system(size: 12.5, weight: .semibold))
-                .foregroundStyle(RBColor.textSecondary)
-            TextField(placeholder, text: text)
-                .font(.system(size: 15))
+    private var trimmedQuery: String { query.trimmingCharacters(in: .whitespacesAndNewlines) }
+
+    private var searchField: some View {
+        HStack(spacing: 10) {
+            Image(systemName: "magnifyingglass").foregroundStyle(RBColor.textMuted)
+            TextField("Search a restaurant", text: $query)
                 .foregroundStyle(RBColor.textPrimary)
                 .autocorrectionDisabled()
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .padding(.vertical, 12)
-                .padding(.horizontal, 14)
-                .background(
-                    RoundedRectangle(cornerRadius: RBRadius.small, style: .continuous)
-                        .fill(RBColor.surface2)
-                )
-        }
-    }
-
-    private func save() {
-        let trimmedName = name.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmedName.isEmpty, !saving else { return }
-        saving = true
-        error = nil
-        Task {
-            let coord = await geocode(name: trimmedName, address: address)
-            let geojson = SpotGeoJSON.oneFeature(name: trimmedName, address: address, lat: coord.latitude, lng: coord.longitude)
-            if await viewModel.importGeoJSON(geojson) != nil {
-                onAdded()
-                dismiss()
-            } else {
-                error = viewModel.errorMessage ?? "Couldn't add the spot."
-                saving = false
+                .onChange(of: query) { _, q in search.update(query: q) }
+            if !query.isEmpty {
+                Button { query = ""; search.update(query: "") } label: {
+                    Image(systemName: "xmark.circle.fill").foregroundStyle(RBColor.textMuted)
+                }
+                .buttonStyle(.plain)
             }
         }
+        .font(.system(size: 16))
+        .padding(.vertical, 13)
+        .padding(.horizontal, 14)
+        .rbCard(fill: RBColor.surface2, bordered: false)
+        .padding(.horizontal, 18)
     }
 
-    /// Forward-geocode; fall back to NYC (the Resy search default) if it can't resolve.
-    private func geocode(name: String, address: String) async -> CLLocationCoordinate2D {
-        let query = address.isEmpty ? name : "\(name), \(address)"
-        if let placemark = try? await CLGeocoder().geocodeAddressString(query).first,
-           let location = placemark.location {
-            return location.coordinate
+    private func resultRow(title: String, subtitle: String, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            HStack(spacing: RBSpacing.md) {
+                Image(systemName: "mappin.circle.fill").font(.system(size: 22)).foregroundStyle(RBColor.accent)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(title).font(.system(size: 16, weight: .semibold)).foregroundStyle(RBColor.textPrimary).lineLimit(1)
+                    if !subtitle.isEmpty {
+                        Text(subtitle).font(.system(size: 12.5)).foregroundStyle(RBColor.textSecondary).lineLimit(1)
+                    }
+                }
+                Spacer()
+                Image(systemName: "plus").font(.system(size: 14, weight: .bold)).foregroundStyle(RBColor.textMuted)
+            }
+            .padding(14)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .rbCard(radius: RBRadius.small)
         }
-        return CLLocationCoordinate2D(latitude: 40.7128, longitude: -74.006)
+        .buttonStyle(.plain)
+    }
+
+    private func pick(_ completion: MKLocalSearchCompletion) async {
+        adding = true; error = nil
+        if let resolved = await search.resolve(completion) {
+            await add(name: resolved.name, address: resolved.address,
+                      lat: resolved.coordinate.latitude, lng: resolved.coordinate.longitude)
+        } else {
+            error = "Couldn't resolve that place."; adding = false
+        }
+    }
+
+    private func addRaw() async {
+        adding = true; error = nil
+        if let resolved = await search.resolve(text: trimmedQuery) {
+            await add(name: resolved.name, address: resolved.address,
+                      lat: resolved.coordinate.latitude, lng: resolved.coordinate.longitude)
+        } else {
+            await add(name: trimmedQuery, address: "", lat: 40.7128, lng: -74.006)
+        }
+    }
+
+    private func add(name: String, address: String, lat: Double, lng: Double) async {
+        let geojson = SpotGeoJSON.oneFeature(name: name, address: address, lat: lat, lng: lng)
+        if await viewModel.importGeoJSON(geojson) != nil {
+            onAdded()
+            dismiss()
+        } else {
+            error = viewModel.errorMessage ?? "Couldn't add the spot."
+            adding = false
+        }
     }
 }
