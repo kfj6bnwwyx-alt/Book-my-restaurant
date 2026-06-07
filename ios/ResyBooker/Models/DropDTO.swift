@@ -45,6 +45,33 @@ struct DropDTO: Codable, Identifiable, Hashable {
     }
 }
 
+/// Body for POST /drops. nil schedule fields are omitted by the encoder, so the
+/// server applies its defaults (only the fields a given cadence needs are sent).
+struct DropCreateRequest: Codable {
+    let provider: String
+    let venueId: String
+    let venueName: String
+    let cadence: String
+    let releaseWeekday: Int?
+    let releaseDom: Int?
+    let releaseTime: String
+    let anchorDate: String?
+    let windowDays: Int
+    let timezone: String
+    let watching: Bool
+
+    enum CodingKeys: String, CodingKey {
+        case provider, cadence, timezone, watching
+        case venueId = "venue_id"
+        case venueName = "venue_name"
+        case releaseWeekday = "release_weekday"
+        case releaseDom = "release_dom"
+        case releaseTime = "release_time"
+        case anchorDate = "anchor_date"
+        case windowDays = "window_days"
+    }
+}
+
 struct AutobookDTO: Codable, Hashable {
     let partySize: Int?
     let days: String?

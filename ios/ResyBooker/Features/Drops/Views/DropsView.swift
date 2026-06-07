@@ -5,6 +5,7 @@ import SwiftUI
 struct DropsView: View {
     @State private var viewModel = DropsViewModel()
     @State private var showingSettings = false
+    @State private var showingCreate = false
 
     var body: some View {
         NavigationStack {
@@ -16,6 +17,9 @@ struct DropsView: View {
                             title: "Drops",
                             subtitle: "Hard-to-get tables that release on a schedule."
                         )
+                        .overlay(alignment: .topTrailing) {
+                            if AppConfig.hasAppKey { addButton }
+                        }
                         content
                     }
                     .padding(.horizontal, 18)
@@ -26,12 +30,27 @@ struct DropsView: View {
             .serverSettingsSheet(isPresented: $showingSettings) {
                 Task { await viewModel.load() }
             }
+            .sheet(isPresented: $showingCreate) {
+                CreateDropSheet { Task { await viewModel.load() } }
+            }
             .task {
                 if AppConfig.hasAppKey, viewModel.state == .idle {
                     await viewModel.load()
                 }
             }
         }
+    }
+
+    private var addButton: some View {
+        Button { showingCreate = true } label: {
+            Image(systemName: "plus")
+                .font(.system(size: 17, weight: .semibold))
+                .foregroundStyle(RBColor.accent)
+                .frame(width: 42, height: 42)
+                .rbCard(radius: RBRadius.small)
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel("Add a drop")
     }
 
     @ViewBuilder
@@ -48,7 +67,9 @@ struct DropsView: View {
                 EmptyStateView(
                     systemImage: "calendar.badge.clock",
                     title: "No drops tracked yet",
-                    message: "Add a venue that releases reservations on a schedule, and the next release lands here."
+                    message: "Add a venue that releases reservations on a schedule, and the next release lands here.",
+                    actionTitle: "Add a drop",
+                    action: { showingCreate = true }
                 )
                 .padding(.top, 40)
             case .loaded:

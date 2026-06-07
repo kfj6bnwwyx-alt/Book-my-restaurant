@@ -129,6 +129,12 @@ actor APIClient {
         return try decode([DropDTO].self, data)
     }
 
+    func createDrop(_ req: DropCreateRequest) async throws -> DropDTO {
+        let body = try encoder.encode(req)
+        let data = try await request("/drops", method: "POST", body: body)
+        return try decode(DropDTO.self, data)
+    }
+
     func drop(_ id: Int) async throws -> DropDTO {
         let data = try await request("/drops/\(id)")
         return try decode(DropDTO.self, data)
