@@ -8,8 +8,8 @@ import SwiftData
 struct PinsView: View {
     @Environment(\.modelContext) private var modelContext
     @State private var viewModel: PinsViewModel?
-    @State private var showingImporter = false
     @State private var showingSettings = false
+    @State private var showingSettingsMenu = false
     @State private var showingAdd = false
     @State private var showToast = false
     @State private var toastText = ""
@@ -29,15 +29,9 @@ struct PinsView: View {
             }
             .toolbar(.hidden, for: .navigationBar)
             .rbToast(isPresented: $showToast, style: .success, text: toastText)
-            .sheet(isPresented: $showingImporter) {
+            .sheet(isPresented: $showingSettingsMenu) {
                 if let vm = viewModel {
-                    ImportSheet(viewModel: vm) {
-                        toastText = vm.importSummary ?? "Spots imported"
-                        showToast = true
-                    }
-                    .presentationDetents([.large])
-                    .presentationBackground(RBColor.surface)
-                    .presentationDragIndicator(.visible)
+                    SettingsSheet(viewModel: vm) { Task { await viewModel?.load() } }
                 }
             }
             .serverSettingsSheet(isPresented: $showingSettings) {
@@ -71,11 +65,7 @@ struct PinsView: View {
             iconButton("plus", label: "Add a spot") {
                 if AppConfig.hasAppKey { showingAdd = true } else { showingSettings = true }
             }
-            iconButton("square.and.arrow.down", label: "Import spots") {
-                // No key means every import 401s; send them to set it up first.
-                if AppConfig.hasAppKey { showingImporter = true } else { showingSettings = true }
-            }
-            iconButton("gearshape", label: "Server settings") { showingSettings = true }
+            iconButton("gearshape", label: "Settings") { showingSettingsMenu = true }
         }
     }
 
@@ -114,9 +104,9 @@ struct PinsView: View {
                 EmptyStateView(
                     systemImage: "mappin.and.ellipse",
                     title: "No spots yet",
-                    message: "Import your Google Maps saved places (Takeout → Saved → export as GeoJSON), then link each to Resy or OpenTable.",
-                    actionTitle: "Import spots",
-                    action: { showingImporter = true }
+                    message: "Add a restaurant, or bulk-import a Google saved list from Settings, then link each to Resy or OpenTable.",
+                    actionTitle: "Add a spot",
+                    action: { showingAdd = true }
                 )
                 .padding(.top, 40)
             } else {

@@ -120,6 +120,84 @@ struct ServerSettingsSheet: View {
     }
 }
 
+/// Settings menu for the Spots tab: server connection + bulk import (which is
+/// secondary to adding spots one at a time, so it lives here, not in the header).
+struct SettingsSheet: View {
+    let viewModel: PinsViewModel
+    var onSaved: () -> Void
+    @Environment(\.dismiss) private var dismiss
+    @State private var showingKey = false
+    @State private var showingImport = false
+
+    var body: some View {
+        NavigationStack {
+            ZStack {
+                RBColor.bg.ignoresSafeArea()
+                ScrollView {
+                    VStack(alignment: .leading, spacing: RBSpacing.lg) {
+                        RBSectionLabel(title: "SERVER")
+                        row(icon: "key.horizontal",
+                            title: AppConfig.hasAppKey ? "App key" : "Enter app key",
+                            detail: AppConfig.hasAppKey ? "Connected" : "Not set",
+                            detailColor: AppConfig.hasAppKey ? RBColor.success : RBColor.textMuted) {
+                            showingKey = true
+                        }
+                        RBSectionLabel(title: "PLACES")
+                        row(icon: "square.and.arrow.down",
+                            title: "Import from Google Takeout",
+                            detail: "Bulk-add a saved list (CSV)",
+                            detailColor: RBColor.textMuted) {
+                            showingImport = true
+                        }
+                    }
+                    .padding(18)
+                }
+            }
+            .navigationTitle("Settings")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Done") { dismiss() }.tint(RBColor.accent)
+                }
+            }
+            .sheet(isPresented: $showingKey) {
+                ServerSettingsSheet(onSaved: onSaved)
+                    .presentationDetents([.medium, .large])
+                    .presentationBackground(RBColor.surface)
+                    .presentationDragIndicator(.visible)
+            }
+            .sheet(isPresented: $showingImport) {
+                ImportSheet(viewModel: viewModel) { onSaved() }
+                    .presentationDetents([.large])
+                    .presentationBackground(RBColor.surface)
+                    .presentationDragIndicator(.visible)
+            }
+        }
+        .tint(RBColor.accent)
+    }
+
+    private func row(icon: String, title: String, detail: String, detailColor: Color, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            HStack(spacing: RBSpacing.md) {
+                Image(systemName: icon)
+                    .font(.system(size: 17))
+                    .foregroundStyle(RBColor.accent)
+                    .frame(width: 26)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(title).font(.system(size: 16, weight: .semibold)).foregroundStyle(RBColor.textPrimary)
+                    Text(detail).font(.system(size: 12.5)).foregroundStyle(detailColor)
+                }
+                Spacer()
+                Image(systemName: "chevron.right").font(.system(size: 14, weight: .semibold)).foregroundStyle(RBColor.textMuted)
+            }
+            .padding(14)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .rbCard(fill: RBColor.surface)
+        }
+        .buttonStyle(.plain)
+    }
+}
+
 /// Reusable presentation modifier for the settings sheet.
 extension View {
     func serverSettingsSheet(isPresented: Binding<Bool>, onSaved: @escaping () -> Void) -> some View {
