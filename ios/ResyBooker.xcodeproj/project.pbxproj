@@ -7,7 +7,7 @@
 	objects = {
 
 /* Begin PBXFileReference section */
-		B58970D02FD58C7600885171 /* ResyBooker.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "ResyBooker.app"; sourceTree = BUILT_PRODUCTS_DIR; };
+		B58970D02FD58C7600885171 /* ResyBooker.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = ResyBooker.app; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
@@ -63,10 +63,10 @@
 			fileSystemSynchronizedGroups = (
 				B58970D22FD58C7600885171 /* ResyBooker */,
 			);
-			name = "ResyBooker";
+			name = ResyBooker;
 			packageProductDependencies = (
 			);
-			productName = "ResyBooker";
+			productName = ResyBooker;
 			productReference = B58970D02FD58C7600885171 /* ResyBooker.app */;
 			productType = "com.apple.product-type.application";
 		};

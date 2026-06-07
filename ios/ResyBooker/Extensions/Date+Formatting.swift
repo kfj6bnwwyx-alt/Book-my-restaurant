@@ -7,6 +7,22 @@ extension DateFormatter {
         f.locale = Locale(identifier: "en_US_POSIX")
         return f
     }()
+
+    /// "Fri, Jun 12" — the date half of the Tables search summary.
+    static let summaryDay: DateFormatter = {
+        let f = DateFormatter()
+        f.dateFormat = "EEE, MMM d"
+        f.locale = Locale(identifier: "en_US_POSIX")
+        return f
+    }()
+
+    /// "7:00 PM" — the time half of the search summary and slot chips.
+    static let summaryTime: DateFormatter = {
+        let f = DateFormatter()
+        f.dateFormat = "h:mm a"
+        f.locale = Locale(identifier: "en_US_POSIX")
+        return f
+    }()
 }
 
 enum SlotTime {

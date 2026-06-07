@@ -2,6 +2,10 @@
 design/
 *.pen
 
+# Local tooling / OneDrive-synced strays
+.impeccable/
+/Book my restaurant/
+
 # Python
 __pycache__/
 *.py[cod]

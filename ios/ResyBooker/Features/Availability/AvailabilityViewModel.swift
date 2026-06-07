@@ -15,15 +15,23 @@ final class AvailabilityViewModel {
     var state: State = .idle
     var results: [VenueAvailabilityDTO] = []
     var errorMessage: String?
-    var showingError = false
+    var isAuthError = false
 
     private let api = APIClient.shared
 
     var availableResults: [VenueAvailabilityDTO] { results.filter { $0.available } }
     var unavailableResults: [VenueAvailabilityDTO] { results.filter { !$0.available } }
 
+    /// "Fri, Jun 12  ·  7:00 PM  ·  2" for the search summary bar.
+    var summaryText: String {
+        let d = DateFormatter.summaryDay.string(from: day)
+        let t = DateFormatter.summaryTime.string(from: time)
+        return "\(d)  ·  \(t)  ·  \(partySize)"
+    }
+
     func search() async {
         state = .loading
+        isAuthError = false
         let dayStr = DateFormatter.dayKey.string(from: day)
         let timeStr = timeString()
         do {
@@ -34,7 +42,7 @@ final class AvailabilityViewModel {
             state = .loaded
         } catch {
             errorMessage = error.localizedDescription
-            showingError = true
+            isAuthError = (error as? APIError)?.isUnauthorized ?? false
             state = .failed
         }
     }

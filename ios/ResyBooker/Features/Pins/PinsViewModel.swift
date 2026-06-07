@@ -22,6 +22,7 @@ final class PinsViewModel {
 
     func load() async {
         isLoading = true
+        errorMessage = nil
         defer { isLoading = false }
         do {
             pins = try await api.fetchPins()
@@ -31,13 +32,16 @@ final class PinsViewModel {
         }
     }
 
-    func importGeoJSON(_ text: String) async {
+    @discardableResult
+    func importGeoJSON(_ text: String) async -> Bool {
         do {
             let resp = try await api.importPins(geojson: text)
             importSummary = "Imported \(resp.imported) of \(resp.totalParsed) places."
             await load()
+            return true
         } catch {
             fail(error)
+            return false
         }
     }
 

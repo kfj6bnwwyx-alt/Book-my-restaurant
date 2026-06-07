@@ -12,6 +12,12 @@ enum APIError: LocalizedError {
         case let .transport(msg): return "Network: \(msg)"
         }
     }
+
+    /// 401 from the server means the X-App-Key is missing or wrong.
+    var isUnauthorized: Bool {
+        if case .badStatus(401, _) = self { return true }
+        return false
+    }
 }
 
 actor APIClient {
@@ -114,5 +120,21 @@ actor APIClient {
         let body = try encoder.encode(req)
         let data = try await request("/book", method: "POST", body: body)
         return try decode(BookResponse.self, data)
+    }
+
+    // MARK: - Drops
+
+    func fetchDrops() async throws -> [DropDTO] {
+        let data = try await request("/drops")
+        return try decode([DropDTO].self, data)
+    }
+
+    func drop(_ id: Int) async throws -> DropDTO {
+        let data = try await request("/drops/\(id)")
+        return try decode(DropDTO.self, data)
+    }
+
+    func deleteDrop(_ id: Int) async throws {
+        _ = try await request("/drops/\(id)", method: "DELETE")
     }
 }
