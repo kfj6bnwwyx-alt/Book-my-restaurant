@@ -249,7 +249,7 @@ struct ImportSheet: View {
                 .font(.system(size: 22, weight: .bold))
                 .foregroundStyle(RBColor.textPrimary)
                 .padding(.top, RBSpacing.sm)
-            Text("Paste the GeoJSON from Google Takeout (Saved → your list → export as GeoJSON).")
+            Text("Paste your Google Takeout export for a Saved list — the CSV (or a GeoJSON file).")
                 .font(.system(size: 13.5))
                 .foregroundStyle(RBColor.textSecondary)
 
@@ -269,7 +269,7 @@ struct ImportSheet: View {
                 )
 
             if invalid {
-                Text("That doesn't look like valid GeoJSON. Paste the whole exported file.")
+                Text("That doesn't look like a Takeout export. Paste the whole CSV (or GeoJSON) file.")
                     .font(.system(size: 12.5))
                     .foregroundStyle(RBColor.red)
                     .fixedSize(horizontal: false, vertical: true)
@@ -354,10 +354,11 @@ struct ImportSheet: View {
 
     private func runImport() {
         invalid = false
-        // Client-side guard catches an obviously-wrong paste before a round-trip;
-        // the server's total_parsed count is the authoritative GeoJSON validation.
-        guard let data = text.data(using: .utf8),
-              (try? JSONSerialization.jsonObject(with: data)) != nil else {
+        // Accept a GeoJSON object/array or a Takeout CSV; the server's
+        // total_parsed count is the authoritative validation either way.
+        let isJSON = (try? JSONSerialization.jsonObject(with: Data(text.utf8))) != nil
+        let looksCSV = text.contains(",") && text.contains("\n")
+        guard isJSON || looksCSV else {
             invalid = true
             return
         }
