@@ -187,6 +187,15 @@ struct DropCountdownView: View {
                     }
 
                     if !drop.open { countdownCard }
+
+                    NavigationLink {
+                        TwoWeekGridView(drop: drop)
+                    } label: {
+                        Text(drop.open ? "See open tables" : "See all times")
+                            .frame(maxWidth: .infinity)
+                    }
+                    .buttonStyle(.rbPrimary)
+
                     infoCard
                     autobookCard
                 }

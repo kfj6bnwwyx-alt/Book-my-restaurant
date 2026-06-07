@@ -72,6 +72,67 @@ struct DropCreateRequest: Codable {
     }
 }
 
+// MARK: - Window + reserve
+
+/// GET /drops/{id}/window — the full released window, one entry per day.
+struct DropWindowResponse: Codable {
+    let dropId: Int
+    let venueName: String
+    let partySize: Int
+    let results: [DropDayDTO]
+
+    enum CodingKeys: String, CodingKey {
+        case results
+        case dropId = "drop_id"
+        case venueName = "venue_name"
+        case partySize = "party_size"
+    }
+}
+
+struct DropDayDTO: Codable, Identifiable {
+    let day: String
+    let slots: [SlotDTO]
+    let available: Bool
+    let error: String?
+    var id: String { day }
+}
+
+/// POST /drops/{id}/reserve
+struct ReserveRequest: Codable {
+    let partySize: Int
+    let slots: [ReserveSlot]
+
+    enum CodingKeys: String, CodingKey {
+        case slots
+        case partySize = "party_size"
+    }
+}
+
+struct ReserveSlot: Codable {
+    let configToken: String
+    let day: String
+    let time: String?
+
+    enum CodingKeys: String, CodingKey {
+        case day, time
+        case configToken = "config_token"
+    }
+}
+
+struct ReserveResponse: Codable {
+    let booked: Int
+    let requested: Int
+    let results: [ReserveResult]
+}
+
+struct ReserveResult: Codable, Identifiable {
+    let day: String
+    let time: String
+    let status: String     // "booked" | "taken" | "error"
+    let error: String?
+    var id: String { "\(day)-\(time)" }
+}
+
 /// Body for PATCH /drops/{id}. Only set fields are sent (nil omitted).
 struct DropUpdateRequest: Codable {
     var autobookEnabled: Bool?

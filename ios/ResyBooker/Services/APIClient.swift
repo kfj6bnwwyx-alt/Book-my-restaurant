@@ -149,4 +149,18 @@ actor APIClient {
     func deleteDrop(_ id: Int) async throws {
         _ = try await request("/drops/\(id)", method: "DELETE")
     }
+
+    func dropWindow(_ id: Int, partySize: Int) async throws -> DropWindowResponse {
+        let data = try await request(
+            "/drops/\(id)/window",
+            query: [URLQueryItem(name: "party_size", value: String(partySize))]
+        )
+        return try decode(DropWindowResponse.self, data)
+    }
+
+    func reserve(_ id: Int, _ req: ReserveRequest) async throws -> ReserveResponse {
+        let body = try encoder.encode(req)
+        let data = try await request("/drops/\(id)/reserve", method: "POST", body: body)
+        return try decode(ReserveResponse.self, data)
+    }
 }
