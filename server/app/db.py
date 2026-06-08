@@ -1,6 +1,7 @@
 from datetime import datetime
 from typing import Optional
 
+from sqlalchemy import inspect, text
 from sqlmodel import Field, SQLModel, create_engine, Session
 
 from .config import get_settings
@@ -28,6 +29,10 @@ class Pin(SQLModel, table=True):
     # For Resy, the slug/url-name; for OpenTable, the numeric rid as string.
     linked_name: Optional[str] = None
     linked_at: Optional[datetime] = None
+
+    # Candidate venues the user dismissed as wrong matches, stored as
+    # "provider:venue_id" comma-separated, so /candidates never resurfaces them.
+    rejected_venues: Optional[str] = Field(default="")
 
     created_at: datetime = Field(default_factory=datetime.utcnow)
 
@@ -134,8 +139,22 @@ class Watch(SQLModel, table=True):
     created_at: datetime = Field(default_factory=datetime.utcnow)
 
 
+def _ensure_columns():
+    """Additive SQLite migration: add columns the model gained after the table
+    was first created. create_all() creates missing tables but never ALTERs an
+    existing one, so a persistent DB (the HA add-on) needs this for new fields."""
+    inspector = inspect(engine)
+    if "pin" not in inspector.get_table_names():
+        return
+    cols = {c["name"] for c in inspector.get_columns("pin")}
+    with engine.begin() as conn:
+        if "rejected_venues" not in cols:
+            conn.execute(text("ALTER TABLE pin ADD COLUMN rejected_venues VARCHAR DEFAULT ''"))
+
+
 def init_db():
     SQLModel.metadata.create_all(engine)
+    _ensure_columns()
 
 
 def get_session():

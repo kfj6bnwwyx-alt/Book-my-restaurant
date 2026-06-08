@@ -6,7 +6,11 @@ Endpoints:
   POST   /pins/import                import Google Takeout GeoJSON
   GET    /pins/{id}/candidates       provider venue candidates for a pin
   POST   /pins/{id}/link             confirm pin -> venue mapping
+  POST   /pins/{id}/unlink           undo a venue link (keep the pin)
+  POST   /pins/{id}/reject           dismiss a wrong candidate (hide it next time)
+  DELETE /pins/{id}                  remove an imported pin entirely
   GET    /availability               fan out across linked pins for date/time/party
+  GET    /availability/window        one linked pin across the next N days
   POST   /book                       book a Resy slot
   GET    /resy/payment-methods       helper to find your payment_method_id
 
@@ -88,6 +92,11 @@ class PinLocationBody(BaseModel):
     lat: float
     lng: float
     address: Optional[str] = None
+
+
+class RejectBody(BaseModel):
+    provider: str  # "resy" | "opentable"
+    venue_id: str
 
 
 class BookBody(BaseModel):
@@ -228,7 +237,12 @@ async def pin_candidates(
     else:
         cands = await opentable.search_restaurants(pin.name, pin.lat, pin.lng)
     ranked = rank_matches({"name": pin.name, "lat": pin.lat, "lng": pin.lng}, cands)
-    return [{"score": s, **c} for s, c in ranked]
+    rejected = {r for r in (pin.rejected_venues or "").split(",") if r}
+    return [
+        {"score": s, **c}
+        for s, c in ranked
+        if f"{provider}:{c.get('venue_id')}" not in rejected
+    ]
 
 
 @app.post("/pins/{pin_id}/link", dependencies=[Depends(require_key)])
@@ -258,6 +272,47 @@ def update_pin(pin_id: int, body: PinLocationBody, session: Session = Depends(ge
     session.add(pin)
     session.commit()
     return {"ok": True, "pin_id": pin_id}
+
+
+@app.delete("/pins/{pin_id}", dependencies=[Depends(require_key)])
+def delete_pin(pin_id: int, session: Session = Depends(get_session)):
+    """Remove an imported pin entirely (prune a wrong/junk import)."""
+    pin = session.get(Pin, pin_id)
+    if not pin:
+        raise HTTPException(404, "pin not found")
+    session.delete(pin)
+    session.commit()
+    return {"ok": True, "pin_id": pin_id}
+
+
+@app.post("/pins/{pin_id}/unlink", dependencies=[Depends(require_key)])
+def unlink_pin(pin_id: int, session: Session = Depends(get_session)):
+    """Undo a venue link without deleting the pin."""
+    pin = session.get(Pin, pin_id)
+    if not pin:
+        raise HTTPException(404, "pin not found")
+    pin.provider = None
+    pin.venue_id = None
+    pin.linked_name = None
+    pin.linked_at = None
+    session.add(pin)
+    session.commit()
+    return {"ok": True, "pin_id": pin_id}
+
+
+@app.post("/pins/{pin_id}/reject", dependencies=[Depends(require_key)])
+def reject_candidate(pin_id: int, body: RejectBody, session: Session = Depends(get_session)):
+    """Dismiss a wrong candidate so /candidates never resurfaces it."""
+    pin = session.get(Pin, pin_id)
+    if not pin:
+        raise HTTPException(404, "pin not found")
+    token = f"{body.provider}:{body.venue_id}"
+    rejected = {r for r in (pin.rejected_venues or "").split(",") if r}
+    rejected.add(token)
+    pin.rejected_venues = ",".join(sorted(rejected))
+    session.add(pin)
+    session.commit()
+    return {"ok": True, "pin_id": pin_id, "rejected": sorted(rejected)}
 
 
 # ---------- availability fan-out ----------
@@ -306,6 +361,50 @@ async def availability(
     results = await asyncio.gather(*[one(p) for p in pins])
     results.sort(key=lambda r: (not r["available"], r["name"]))
     return {"day": day, "party_size": party_size, "results": results}
+
+
+@app.get("/availability/window", dependencies=[Depends(require_key)])
+async def availability_window(
+    pin_id: int = Query(..., description="a single linked pin"),
+    party_size: int = Query(2),
+    time: str = Query("19:00:00", description="HH:MM:SS, used by OpenTable"),
+    days: int = Query(14, ge=1, le=30, description="how many days ahead to scan"),
+    session: Session = Depends(get_session),
+):
+    """One restaurant across the next N days: the restaurant-first view that
+    complements /availability (all restaurants on one date). Mirrors the drop
+    window result shape ({day, slots, available}) so the app reuses the grid."""
+    from datetime import date, timedelta
+
+    pin = session.get(Pin, pin_id)
+    if not pin:
+        raise HTTPException(404, "pin not found")
+    if not pin.venue_id:
+        raise HTTPException(409, "pin is not linked to a venue yet")
+
+    start = date.today()
+    day_strs = [(start + timedelta(days=i)).isoformat() for i in range(days)]
+
+    async def one_day(d: str):
+        try:
+            if pin.provider == "resy":
+                slots = await resy.find(pin.venue_id, d, party_size)
+            else:
+                slots = await opentable.availability(int(pin.venue_id), d, time, party_size)
+            return {"day": d, "slots": slots, "available": len(slots) > 0}
+        except Exception as e:  # one day failing shouldn't kill the scan
+            return {"day": d, "slots": [], "available": False, "error": str(e)[:200]}
+
+    results = await asyncio.gather(*[one_day(d) for d in day_strs])  # gather preserves order
+    return {
+        "pin_id": pin.id,
+        "name": pin.name,
+        "provider": pin.provider,
+        "venue_id": pin.venue_id,
+        "party_size": party_size,
+        "days": days,
+        "results": results,
+    }
 
 
 # ---------- booking ----------
