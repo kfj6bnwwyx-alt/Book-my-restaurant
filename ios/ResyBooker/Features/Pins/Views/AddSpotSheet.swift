@@ -1,13 +1,22 @@
 import SwiftUI
 import MapKit
+import CoreLocation
 
 /// Add a spot by searching Apple Maps (autocomplete, no API key). Picking a
 /// result gives an exact name + coordinates; "Add as-is" falls back to a plain
 /// search/geocode. Saves through the existing import endpoint (no server change).
+///
+/// Searches are constrained to a city (persisted across launches). Resy is
+/// NYC-centric, but you can point it at any metro — without the constraint,
+/// autocomplete matches same-named restaurants in the wrong city.
 struct AddSpotSheet: View {
     let viewModel: PinsViewModel
     var onAdded: () -> Void
     @Environment(\.dismiss) private var dismiss
+
+    @AppStorage("addSpotCity") private var city = "New York, NY"
+    @State private var cityCenter: CLLocationCoordinate2D?
+    @State private var resolvingCity = false
 
     @State private var query = ""
     @State private var search = LocalSearch()
@@ -19,6 +28,7 @@ struct AddSpotSheet: View {
             ZStack {
                 RBColor.bg.ignoresSafeArea()
                 VStack(alignment: .leading, spacing: RBSpacing.md) {
+                    cityField
                     searchField
                     if let error {
                         Text(error)
@@ -35,7 +45,7 @@ struct AddSpotSheet: View {
                                 }
                             }
                             if !trimmedQuery.isEmpty {
-                                resultRow(title: "Add “\(trimmedQuery)”", subtitle: "Use this name as-is") {
+                                resultRow(title: "Add “\(trimmedQuery)”", subtitle: "Use this name as-is, in \(city)") {
                                     Task { await addRaw() }
                                 }
                             }
@@ -57,11 +67,56 @@ struct AddSpotSheet: View {
                     Button("Cancel") { dismiss() }.tint(RBColor.accent)
                 }
             }
+            .task { await applyCity() }
         }
         .tint(RBColor.accent)
     }
 
     private var trimmedQuery: String { query.trimmingCharacters(in: .whitespacesAndNewlines) }
+
+    // MARK: City constraint
+
+    private var cityField: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text("SEARCHING IN")
+                .font(.system(size: 11, weight: .semibold))
+                .foregroundStyle(RBColor.textMuted)
+                .padding(.horizontal, 18)
+            HStack(spacing: 10) {
+                Image(systemName: "mappin.and.ellipse").foregroundStyle(RBColor.accent)
+                TextField("City (e.g. New York, NY)", text: $city)
+                    .foregroundStyle(RBColor.textPrimary)
+                    .autocorrectionDisabled()
+                    .submitLabel(.search)
+                    .onSubmit { Task { await applyCity() } }
+                if resolvingCity {
+                    ProgressView().controlSize(.small)
+                } else if cityCenter != nil {
+                    Image(systemName: "checkmark.circle.fill").foregroundStyle(RBColor.success)
+                } else {
+                    Image(systemName: "exclamationmark.circle.fill").foregroundStyle(RBColor.amber)
+                }
+            }
+            .font(.system(size: 16))
+            .padding(.vertical, 12)
+            .padding(.horizontal, 14)
+            .rbCard(fill: RBColor.surface2, bordered: false)
+            .padding(.horizontal, 18)
+        }
+    }
+
+    /// Geocode the typed city → set the search region, then refresh results.
+    private func applyCity() async {
+        let q = city.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !q.isEmpty else { cityCenter = nil; return }
+        resolvingCity = true
+        let placemark = try? await CLGeocoder().geocodeAddressString(q).first
+        resolvingCity = false
+        guard let center = placemark?.location?.coordinate else { cityCenter = nil; return }
+        cityCenter = center
+        search.setCity(center: center)
+        search.update(query: query)   // re-run the current query within the new city
+    }
 
     private var searchField: some View {
         HStack(spacing: 10) {
@@ -120,7 +175,11 @@ struct AddSpotSheet: View {
             await add(name: resolved.name, address: resolved.address,
                       lat: resolved.coordinate.latitude, lng: resolved.coordinate.longitude)
         } else {
-            await add(name: trimmedQuery, address: "", lat: 40.7128, lng: -74.006)
+            // No match in the chosen city — keep the name, anchor on the city centre
+            // so it still lands on the map (falls back to NYC if the city is unset).
+            await add(name: trimmedQuery, address: city,
+                      lat: cityCenter?.latitude ?? 40.7128,
+                      lng: cityCenter?.longitude ?? -74.006)
         }
     }
 

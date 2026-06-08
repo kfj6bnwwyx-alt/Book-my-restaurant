@@ -6,7 +6,8 @@ you. Tell Claude "add X to the plan" any time and it lands here.
 ## Branches & deploy
 - **iOS app** lives on branch **`ios-design-buildout`** (not merged to `main`, not pushed). Build locally with ⌘R.
 - **Server** deploys from **`origin/main`** → the HA add-on re-clones `main` on **Rebuild**.
-  Latest server on main: CSV import + NYC candidate fallback + `PATCH /pins/{id}` (`6a3c548`).
+  Latest server on main: CSV import + NYC fallback + `PATCH /pins/{id}` + pin
+  delete/unlink/reject + `GET /availability/window` (one venue across N days).
 - **After any server change: HA → Apps → ResyBooker → ⋮ → Rebuild.**
 
 ## Done
@@ -21,15 +22,19 @@ you. Tell Claude "add X to the plan" any time and it lands here.
 - [x] **Spots map** (MapKit): linked/unlinked pins, tap to Link / open Maps / Resy
 - [x] **Resolve missing locations** (Settings): backfills coordinates for name-only spots
 - [x] **Share-to-app** extension code (`ShareToResyBooker`) — queues shared places via App Group
+- [x] **Pencil design aligned to the app**: 2-row day grids, Spots header (+/map/gear), and new screens (Settings, Add-a-spot search, Spots map, App-key-rejected) + critique fixes (amber countdown, type scale, link color, dash markers, text-muted token)
+- [x] **City constraint on Add-a-spot**: persisted city geocoded + `regionPriority = .required` so search only returns venues in that metro (no wrong-city matches)
+- [x] **Stand-in app icon**: orange fork-and-knife, light/dark/tinted appearances
+- [x] **Remove potentials** (UX critique P1): swipe-to-delete + multi-select bulk delete on Spots, **Unlink** a linked spot, **"Not a match"** dismisses a candidate so it never resurfaces (`rejected_venues` persisted server-side)
+- [x] **Restaurant across dates** (UX critique P1): per-venue 14-day availability view, party stepper, tap a night to book — reachable from a linked Spot **and** from a Tables result (calendar button, incl. the no-tables card)
 
 ## Needs you (setup)
-- [x] **Rebuild the HA add-on** — done; CSV import, NYC fallback, and `PATCH /pins/{id}` are live
-- [ ] **Share extension App Group**: add `group.house-connect.Book-my-restaurant` to BOTH targets (app + ShareToResyBooker), then ⌘R
-- [ ] **Open `design/Book-my-restaurant.pen` in Pencil** so Claude can align the design to the app (MCP only edits the open file)
+- [x] **Rebuild the HA add-on** — *do this again*: server gained pin delete/unlink/reject + `GET /availability/window`. HA → Apps → ResyBooker → ⋮ → Rebuild.
+- [x] **Open `design/Book-my-restaurant.pen` in Pencil** — done; design aligned to the app
+- [x] **Share extension App Group**: added `group.house-connect.Book-my-restaurant` to both targets (entitlements wired)
 - [ ] **Replace the expired Resy card** (Amex …3001, exp 12/2025): add a current card at resy.com → `GET /resy/payment-methods` → update `resy_payment_method_id` in the add-on config. Until then the final **booking step fails** (availability/drops/watches work).
 
 ## Not built yet
-- [ ] **Align the Pencil file** to the app (blocked on opening the .pen): Spots header (+/map/gear), Add-a-spot search, Settings menu, Spots map, "App key rejected" state
 - [ ] **Watches** feature (server endpoints exist; no iOS UI)
 - [ ] **Onboarding** first-run flow
 - [ ] Merge `ios-design-buildout` → `main` / push when ready
