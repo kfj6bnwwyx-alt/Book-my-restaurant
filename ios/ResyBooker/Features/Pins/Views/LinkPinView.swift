@@ -22,9 +22,17 @@ struct LinkPinView: View {
                             .font(.system(size: 28, weight: .bold))
                             .foregroundStyle(RBColor.textPrimary)
                         if pin.linked, let v = pin.venueId, let p = pin.provider {
-                            Text("Linked to \(p.providerDisplayName) (\(v))")
-                                .font(.system(size: 13))
-                                .foregroundStyle(RBColor.success)
+                            HStack(spacing: RBSpacing.sm) {
+                                Text("Linked to \(p.providerDisplayName) (\(v))")
+                                    .font(.system(size: 13))
+                                    .foregroundStyle(RBColor.success)
+                                Spacer(minLength: RBSpacing.sm)
+                                Button("Unlink") {
+                                    Task { await viewModel.unlinkPin(pin); dismiss() }
+                                }
+                                .font(.system(size: 13, weight: .semibold))
+                                .foregroundStyle(RBColor.accent)
+                            }
                         } else {
                             Text("Pick the matching venue")
                                 .font(.system(size: 14))
@@ -90,10 +98,12 @@ struct LinkPinView: View {
             VStack(alignment: .leading, spacing: 11) {
                 RBSectionLabel(title: "BEST MATCHES", count: "\(candidates.count)")
                 ForEach(candidates) { cand in
-                    Button { Task { await link(cand) } } label: {
-                        CandidateRow(candidate: cand, isLinking: linkingId == cand.id)
-                    }
-                    .buttonStyle(.plain)
+                    CandidateRow(
+                        candidate: cand,
+                        isLinking: linkingId == cand.id,
+                        onLink: { Task { await link(cand) } },
+                        onReject: { Task { await reject(cand) } }
+                    )
                     .disabled(linkingId != nil)
                 }
             }
@@ -112,35 +122,64 @@ struct LinkPinView: View {
         linkingId = nil
         dismiss()
     }
+
+    /// Dismiss a wrong match: hide it now, and tell the server so it never
+    /// resurfaces for this pin/provider on a future search.
+    private func reject(_ cand: VenueCandidateDTO) async {
+        candidates.removeAll { $0.id == cand.id }
+        await viewModel.rejectCandidate(pin: pin, candidate: cand, provider: provider)
+    }
 }
 
 struct CandidateRow: View {
     let candidate: VenueCandidateDTO
     let isLinking: Bool
+    var onLink: () -> Void
+    var onReject: () -> Void
 
     var body: some View {
-        HStack(spacing: RBSpacing.md) {
-            VStack(alignment: .leading, spacing: 3) {
-                Text(candidate.name ?? "Unknown")
-                    .font(.system(size: 16, weight: .semibold))
-                    .foregroundStyle(RBColor.textPrimary)
-                if let loc = candidate.locality {
-                    Text(loc)
-                        .font(.system(size: 12))
-                        .foregroundStyle(RBColor.textSecondary)
+        HStack(spacing: RBSpacing.sm) {
+            // The row taps to link; the trailing menu dismisses a wrong match.
+            Button(action: onLink) {
+                HStack(spacing: RBSpacing.md) {
+                    VStack(alignment: .leading, spacing: 3) {
+                        Text(candidate.name ?? "Unknown")
+                            .font(.system(size: 16, weight: .semibold))
+                            .foregroundStyle(RBColor.textPrimary)
+                        if let loc = candidate.locality {
+                            Text(loc)
+                                .font(.system(size: 12))
+                                .foregroundStyle(RBColor.textSecondary)
+                        }
+                    }
+                    Spacer(minLength: RBSpacing.sm)
+                    if isLinking {
+                        ProgressView().tint(RBColor.accent)
+                    } else {
+                        scoreBadge
+                    }
                 }
+                .contentShape(Rectangle())
             }
-            Spacer(minLength: RBSpacing.sm)
-            if isLinking {
-                ProgressView().tint(RBColor.accent)
-            } else {
-                scoreBadge
+            .buttonStyle(.plain)
+            .disabled(isLinking)
+
+            Menu {
+                Button(role: .destructive, action: onReject) {
+                    Label("Not a match", systemImage: "xmark.circle")
+                }
+            } label: {
+                Image(systemName: "ellipsis")
+                    .font(.system(size: 16, weight: .semibold))
+                    .foregroundStyle(RBColor.textMuted)
+                    .frame(width: 32, height: 44)
+                    .contentShape(Rectangle())
             }
+            .disabled(isLinking)
         }
         .padding(RBSpacing.lg)
         .frame(maxWidth: .infinity, alignment: .leading)
         .rbCard(radius: RBRadius.small)
-        .contentShape(Rectangle())
     }
 
     private var scoreBadge: some View {

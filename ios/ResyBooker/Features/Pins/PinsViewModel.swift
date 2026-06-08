@@ -101,6 +101,38 @@ final class PinsViewModel {
         }
     }
 
+    /// Remove an imported pin entirely (prune a wrong/junk import).
+    func deletePin(_ pin: PinDTO) async {
+        do {
+            try await api.deletePin(pin.id)
+            pins.removeAll { $0.id == pin.id }
+            let cached = (try? modelContext.fetch(FetchDescriptor<CachedPin>())) ?? []
+            for c in cached where c.serverId == pin.id { modelContext.delete(c) }
+            try? modelContext.save()
+        } catch {
+            fail(error)
+        }
+    }
+
+    /// Undo a venue link without deleting the pin.
+    func unlinkPin(_ pin: PinDTO) async {
+        do {
+            try await api.unlinkPin(pin.id)
+            await load()
+        } catch {
+            fail(error)
+        }
+    }
+
+    /// Dismiss a wrong candidate so it never resurfaces for this pin.
+    func rejectCandidate(pin: PinDTO, candidate: VenueCandidateDTO, provider: String) async {
+        do {
+            try await api.rejectCandidate(pinId: pin.id, provider: provider, venueId: candidate.venueId)
+        } catch {
+            fail(error)
+        }
+    }
+
     private func syncCache() {
         let existing = (try? modelContext.fetch(FetchDescriptor<CachedPin>())) ?? []
         let byId = Dictionary(uniqueKeysWithValues: existing.map { ($0.serverId, $0) })

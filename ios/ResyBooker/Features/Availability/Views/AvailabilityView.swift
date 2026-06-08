@@ -6,6 +6,7 @@ import SwiftUI
 struct AvailabilityView: View {
     @State private var viewModel = AvailabilityViewModel()
     @State private var pendingBooking: BookingPair?
+    @State private var datesVenue: VenueAvailabilityDTO?
     @State private var showingEditor = false
     @State private var showingSettings = false
 
@@ -41,6 +42,21 @@ struct AvailabilityView: View {
         }
         .serverSettingsSheet(isPresented: $showingSettings) {
             Task { await viewModel.search() }
+        }
+        .sheet(item: $datesVenue) { venue in
+            NavigationStack {
+                RestaurantDatesView(
+                    pinId: venue.pinId, name: venue.name,
+                    provider: venue.provider, venueId: venue.venueId,
+                    partySize: viewModel.partySize
+                )
+                .toolbar {
+                    ToolbarItem(placement: .cancellationAction) {
+                        Button("Done") { datesVenue = nil }.tint(RBColor.accent)
+                    }
+                }
+            }
+            .presentationBackground(RBColor.bg)
         }
     }
 
@@ -172,14 +188,14 @@ struct AvailabilityView: View {
     }
 
     private func venueCard(_ venue: VenueAvailabilityDTO) -> some View {
-        VenueAvailabilityCard(venue: venue) { slot in
+        VenueAvailabilityCard(venue: venue, onPickSlot: { slot in
             pendingBooking = BookingPair(
                 venue: venue,
                 slot: slot,
                 day: DateFormatter.dayKey.string(from: viewModel.day),
                 partySize: viewModel.partySize
             )
-        }
+        }, onOpenDates: { datesVenue = venue })
     }
 
     private var noticeBanner: some View {

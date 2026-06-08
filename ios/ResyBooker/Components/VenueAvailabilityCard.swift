@@ -8,6 +8,8 @@ import SwiftUI
 struct VenueAvailabilityCard: View {
     let venue: VenueAvailabilityDTO
     let onPickSlot: (SlotDTO) -> Void
+    /// Open this one venue across upcoming dates (the restaurant-first pivot).
+    var onOpenDates: (() -> Void)? = nil
 
     var body: some View {
         if venue.available {
@@ -26,6 +28,7 @@ struct VenueAvailabilityCard: View {
                           nameColor: RBColor.textPrimary, providerColor: RBColor.textSecondary)
                 Spacer(minLength: RBSpacing.sm)
                 openBadge
+                datesButton
             }
             RBFlowLayout(spacing: RBSpacing.sm) {
                 // Index-based ids: two slots can be value-equal (same time/token),
@@ -68,6 +71,7 @@ struct VenueAvailabilityCard: View {
                 Image(systemName: isError ? "exclamationmark.triangle.fill" : "minus")
                     .font(.system(size: 14))
                     .foregroundStyle(isError ? RBColor.amber : RBColor.textMuted)
+                datesButton
             }
             Text(venue.error ?? "No tables for this date and party.")
                 .font(.system(size: 12.5))
@@ -77,6 +81,21 @@ struct VenueAvailabilityCard: View {
         .padding(RBSpacing.lg)
         .rbCard()
         .opacity(0.85)
+    }
+
+    @ViewBuilder
+    private var datesButton: some View {
+        if let onOpenDates {
+            Button(action: onOpenDates) {
+                Image(systemName: "calendar")
+                    .font(.system(size: 15, weight: .semibold))
+                    .foregroundStyle(RBColor.accent)
+                    .frame(width: 34, height: 34)
+                    .background(RBColor.surface2, in: RoundedRectangle(cornerRadius: 9, style: .continuous))
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel("See \(venue.name) across upcoming dates")
+        }
     }
 
     // MARK: Pieces

@@ -117,6 +117,20 @@ actor APIClient {
         _ = try await request("/pins/\(pinId)", method: "PATCH", body: body)
     }
 
+    func deletePin(_ id: Int) async throws {
+        _ = try await request("/pins/\(id)", method: "DELETE")
+    }
+
+    func unlinkPin(_ id: Int) async throws {
+        _ = try await request("/pins/\(id)/unlink", method: "POST")
+    }
+
+    /// Dismiss a wrong candidate so /candidates never resurfaces it.
+    func rejectCandidate(pinId: Int, provider: String, venueId: String) async throws {
+        let body = try encoder.encode(["provider": provider, "venue_id": venueId])
+        _ = try await request("/pins/\(pinId)/reject", method: "POST", body: body)
+    }
+
     // MARK: - Availability
 
     func availability(
@@ -133,6 +147,23 @@ actor APIClient {
         if let pinId { q.append(URLQueryItem(name: "pin_id", value: String(pinId))) }
         let data = try await request("/availability", query: q)
         return try decode(AvailabilityResponse.self, data)
+    }
+
+    /// One linked pin across the next `days` days (restaurant-first view).
+    func availabilityWindow(
+        pinId: Int,
+        partySize: Int,
+        time: String = "19:00:00",
+        days: Int = 14
+    ) async throws -> AvailabilityWindowResponse {
+        let q = [
+            URLQueryItem(name: "pin_id", value: String(pinId)),
+            URLQueryItem(name: "party_size", value: String(partySize)),
+            URLQueryItem(name: "time", value: time),
+            URLQueryItem(name: "days", value: String(days)),
+        ]
+        let data = try await request("/availability/window", query: q)
+        return try decode(AvailabilityWindowResponse.self, data)
     }
 
     // MARK: - Booking
