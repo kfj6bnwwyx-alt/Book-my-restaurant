@@ -27,6 +27,9 @@ you. Tell Claude "add X to the plan" any time and it lands here.
 - [x] **Stand-in app icon**: orange fork-and-knife, light/dark/tinted appearances
 - [x] **Remove potentials** (UX critique P1): swipe-to-delete + multi-select bulk delete on Spots, **Unlink** a linked spot, **"Not a match"** dismisses a candidate so it never resurfaces (`rejected_venues` persisted server-side)
 - [x] **Restaurant across dates** (UX critique P1): per-venue 14-day availability view, party stepper, tap a night to book — reachable from a linked Spot **and** from a Tables result (calendar button, incl. the no-tables card)
+- [x] **"Server out of date" error**: a FastAPI default 404 on `/availability/window` now explains the HA rebuild fix instead of a raw "Server 404"
+- [x] **Watches** (iOS UI for the existing server endpoints): section on the Drops tab with status badges (watching/paused/found/booked/expired/error), detail view (check now, pause/resume, edit, remove), create sheet (night, party, time window, poll interval, notify/auto-book + deposit warning). Entry points: Drops tab, binoculars button on the per-restaurant dates view, and "Watch for a table" on its sold-out empty state. Resy only (server constraint).
+- [x] **Onboarding** first-run flow: 3 dark pages (welcome → three tabs → connect server), skippable, shown once; devices that already have a key never see it
 
 ## Needs you (setup)
 - [x] **Rebuild the HA add-on** — *do this again*: server gained pin delete/unlink/reject + `GET /availability/window`. HA → Apps → ResyBooker → ⋮ → Rebuild.
@@ -35,9 +38,9 @@ you. Tell Claude "add X to the plan" any time and it lands here.
 - [ ] **Replace the expired Resy card** (Amex …3001, exp 12/2025): add a current card at resy.com → `GET /resy/payment-methods` → update `resy_payment_method_id` in the add-on config. Until then the final **booking step fails** (availability/drops/watches work).
 
 ## Not built yet
-- [ ] **Watches** feature (server endpoints exist; no iOS UI)
-- [ ] **Onboarding** first-run flow
+- [ ] **Pencil design screens for Watches + Onboarding** (built app-first; align the .pen when Pencil is open next)
 - [ ] Merge `ios-design-buildout` → `main` / push when ready
+- [ ] Watch notifications surface (server sets `notify`; how alerts reach the phone — HA notification? push? — is undecided)
 
 ## Known quirks
 - **OneDrive** keeps resurrecting the old `Book my restaurant/` folder and shuffling the `.pen` files — delete the stray folder if it returns; the real design is `design/Book-my-restaurant.pen`.
