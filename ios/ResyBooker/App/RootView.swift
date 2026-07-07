@@ -13,6 +13,8 @@ import CoreLocation
 struct RootView: View {
     @State private var tab: RBTab = .tables
     @Environment(\.scenePhase) private var scenePhase
+    @AppStorage("hasCompletedOnboarding") private var hasCompletedOnboarding = false
+    @State private var showingOnboarding = false
 
     var body: some View {
         ZStack(alignment: .bottom) {
@@ -31,6 +33,22 @@ struct RootView: View {
         }
         .tint(RBColor.accent)
         .preferredColorScheme(.dark)
+        .fullScreenCover(isPresented: $showingOnboarding) {
+            OnboardingView {
+                hasCompletedOnboarding = true
+                showingOnboarding = false
+            }
+        }
+        .onAppear {
+            // First run only. A device that already has a key predates the
+            // onboarding flow — mark it done instead of re-teaching.
+            guard !hasCompletedOnboarding else { return }
+            if AppConfig.hasAppKey {
+                hasCompletedOnboarding = true
+            } else {
+                showingOnboarding = true
+            }
+        }
         .task { await Self.importPendingShares() }
         .onChange(of: scenePhase) { _, phase in
             if phase == .active { Task { await Self.importPendingShares() } }
