@@ -16,6 +16,7 @@ struct RestaurantDatesView: View {
 
     @State private var window: AvailabilityWindowResponse?
     @State private var loading = true
+    @State private var errorTitle = "Couldn't check dates"
     @State private var errorMessage: String?
     @State private var partySize: Int
     @State private var pendingBooking: BookingPair?
@@ -63,7 +64,7 @@ struct RestaurantDatesView: View {
             .padding(.top, 12)
         } else if let errorMessage, window == nil {
             InlineErrorView(
-                title: "Couldn't check dates",
+                title: errorTitle,
                 message: errorMessage,
                 retry: { Task { await load() } }
             )
@@ -155,7 +156,18 @@ struct RestaurantDatesView: View {
             window = try await APIClient.shared.availabilityWindow(
                 pinId: pinId, partySize: partySize, days: days
             )
+        } catch let error as APIError where error.isMissingEndpoint {
+            // The per-restaurant dates view calls /availability/window, an
+            // endpoint added after the first server build. A 404 here almost
+            // always means the booking server is running old code.
+            errorTitle = "Your booking server is out of date"
+            errorMessage = "This “View dates” screen needs a newer version of your "
+                + "ResyBooker server. The Tables tab still works because it uses an "
+                + "older endpoint.\n\nTo fix it: rebuild the ResyBooker add-on in "
+                + "Home Assistant (Settings → Add-ons → ResyBooker → Rebuild), then "
+                + "restart it and try again."
         } catch {
+            errorTitle = "Couldn't check dates"
             errorMessage = error.localizedDescription
         }
     }

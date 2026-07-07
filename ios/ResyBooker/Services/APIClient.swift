@@ -18,6 +18,15 @@ enum APIError: LocalizedError {
         if case .badStatus(401, _) = self { return true }
         return false
     }
+
+    /// A 404 whose body is FastAPI's default unmatched-route response
+    /// (`{"detail":"Not Found"}`). This means the running server build predates
+    /// the endpoint the app just called — i.e. the server needs a rebuild — as
+    /// opposed to a 404 with a custom detail like "pin not found".
+    var isMissingEndpoint: Bool {
+        if case let .badStatus(404, body) = self { return body.contains("\"Not Found\"") }
+        return false
+    }
 }
 
 actor APIClient {
