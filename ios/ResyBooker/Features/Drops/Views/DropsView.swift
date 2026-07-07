@@ -4,8 +4,10 @@ import SwiftUI
 /// drops, each opening a live countdown. Matches the Pencil Drops screens.
 struct DropsView: View {
     @State private var viewModel = DropsViewModel()
+    @State private var watchesViewModel = WatchesViewModel()
     @State private var showingSettings = false
     @State private var showingCreate = false
+    @State private var showingCreateWatch = false
 
     var body: some View {
         NavigationStack {
@@ -15,12 +17,19 @@ struct DropsView: View {
                     VStack(alignment: .leading, spacing: RBSpacing.lg) {
                         RBScreenHeader(
                             title: "Drops",
-                            subtitle: "Hard-to-get tables that release on a schedule."
+                            subtitle: "Scheduled releases and cancellation watches."
                         )
                         .overlay(alignment: .topTrailing) {
                             if AppConfig.hasAppKey { addButton }
                         }
                         content
+                        if AppConfig.hasAppKey, viewModel.state != .failed || !viewModel.isAuthError {
+                            WatchesSection(
+                                viewModel: watchesViewModel,
+                                showingCreate: $showingCreateWatch
+                            )
+                            .padding(.top, RBSpacing.sm)
+                        }
                     }
                     .padding(.horizontal, 18)
                     .padding(.top, 10)
@@ -28,17 +37,26 @@ struct DropsView: View {
             }
             .toolbar(.hidden, for: .navigationBar)
             .serverSettingsSheet(isPresented: $showingSettings) {
-                Task { await viewModel.load() }
+                Task { await reload() }
             }
             .sheet(isPresented: $showingCreate) {
                 CreateDropSheet { Task { await viewModel.load() } }
             }
+            .sheet(isPresented: $showingCreateWatch) {
+                CreateWatchSheet { Task { await watchesViewModel.load() } }
+            }
             .task {
                 if AppConfig.hasAppKey, viewModel.state == .idle {
-                    await viewModel.load()
+                    await reload()
                 }
             }
         }
+    }
+
+    private func reload() async {
+        async let drops: Void = viewModel.load()
+        async let watches: Void = watchesViewModel.load()
+        _ = await (drops, watches)
     }
 
     private var addButton: some View {

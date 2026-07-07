@@ -20,6 +20,8 @@ struct RestaurantDatesView: View {
     @State private var errorMessage: String?
     @State private var partySize: Int
     @State private var pendingBooking: BookingPair?
+    @State private var showingWatch = false
+    @State private var watchCreated = false
 
     init(pinId: Int, name: String, provider: String?, venueId: String?,
          partySize: Int = 2, days: Int = 14) {
@@ -31,6 +33,12 @@ struct RestaurantDatesView: View {
         _partySize = State(initialValue: partySize)
     }
 
+    /// Watches are Resy-only; a prefilled target needs the venue link.
+    private var watchTarget: WatchTarget? {
+        guard provider?.lowercased() == "resy", let venueId else { return nil }
+        return WatchTarget(pinId: pinId, venueId: venueId, venueName: name)
+    }
+
     var body: some View {
         ZStack {
             RBColor.bg.ignoresSafeArea()
@@ -38,6 +46,26 @@ struct RestaurantDatesView: View {
         }
         .navigationTitle(name)
         .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            if watchTarget != nil {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button { showingWatch = true } label: {
+                        Image(systemName: "binoculars")
+                    }
+                    .tint(RBColor.accent)
+                    .accessibilityLabel("Watch \(name) for cancellations")
+                }
+            }
+        }
+        .sheet(isPresented: $showingWatch) {
+            if let watchTarget {
+                CreateWatchSheet(target: watchTarget) { watchCreated = true }
+                    .presentationDetents([.large])
+                    .presentationBackground(RBColor.surface)
+                    .presentationDragIndicator(.visible)
+            }
+        }
+        .rbToast(isPresented: $watchCreated, text: "Watching — check the Drops tab")
         .task(id: partySize) { await load() }
         .sheet(item: $pendingBooking) { pair in
             BookingConfirmView(
@@ -83,7 +111,11 @@ struct RestaurantDatesView: View {
                         EmptyStateView(
                             systemImage: "calendar",
                             title: "No tables in the next \(days) days",
-                            message: "Nothing open for a party of \(partySize) at \(name) right now. Try a different party size, or check back later."
+                            message: watchTarget == nil
+                                ? "Nothing open for a party of \(partySize) at \(name) right now. Try a different party size, or check back later."
+                                : "Nothing open for a party of \(partySize) at \(name) right now. Watch a night and we'll re-check every minute for a cancellation.",
+                            actionTitle: watchTarget == nil ? nil : "Watch for a table",
+                            action: watchTarget == nil ? nil : { showingWatch = true }
                         )
                         .padding(.top, 32)
                     } else {

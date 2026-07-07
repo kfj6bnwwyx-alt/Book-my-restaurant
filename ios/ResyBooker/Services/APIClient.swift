@@ -224,4 +224,33 @@ actor APIClient {
         let data = try await request("/drops/\(id)/reserve", method: "POST", body: body)
         return try decode(ReserveResponse.self, data)
     }
+
+    // MARK: - Watches
+
+    func fetchWatches() async throws -> [WatchDTO] {
+        let data = try await request("/watches")
+        return try decode([WatchDTO].self, data)
+    }
+
+    func createWatch(_ req: WatchCreateRequest) async throws -> WatchDTO {
+        let body = try encoder.encode(req)
+        let data = try await request("/watches", method: "POST", body: body)
+        return try decode(WatchDTO.self, data)
+    }
+
+    func updateWatch(_ id: Int, _ req: WatchUpdateRequest) async throws -> WatchDTO {
+        let body = try encoder.encode(req)
+        let data = try await request("/watches/\(id)", method: "PATCH", body: body)
+        return try decode(WatchDTO.self, data)
+    }
+
+    func deleteWatch(_ id: Int) async throws {
+        _ = try await request("/watches/\(id)", method: "DELETE")
+    }
+
+    /// Trigger one poll right now; the server mutates the watch as a side effect.
+    func checkWatch(_ id: Int) async throws -> WatchCheckResponse {
+        let data = try await request("/watches/\(id)/check", method: "POST")
+        return try decode(WatchCheckResponse.self, data)
+    }
 }
