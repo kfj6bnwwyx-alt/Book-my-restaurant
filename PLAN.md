@@ -35,7 +35,7 @@ you. Tell Claude "add X to the plan" any time and it lands here.
 - [x] **Rebuild the HA add-on** — *do this again*: server gained pin delete/unlink/reject + `GET /availability/window`. HA → Apps → ResyBooker → ⋮ → Rebuild.
 - [x] **Open `design/Book-my-restaurant.pen` in Pencil** — done; design aligned to the app
 - [x] **Share extension App Group**: added `group.house-connect.Book-my-restaurant` to both targets (entitlements wired)
-- [ ] **Replace the expired Resy card** (Amex …3001, exp 12/2025): add a current card at resy.com → `GET /resy/payment-methods` → update `resy_payment_method_id` in the add-on config. Until then the final **booking step fails** (availability/drops/watches work).
+- [x] **Resy card is fine** — the Amex …3001 was reissued past its printed 12/2025 expiry and the stored card still works in Resy (user-confirmed, Jul 2026). Same `resy_payment_method_id`, no config change needed. Booking is not blocked.
 
 ## Not built yet
 - [ ] **Pencil design screens for Watches + Onboarding** (built app-first; align the .pen when Pencil is open next)
