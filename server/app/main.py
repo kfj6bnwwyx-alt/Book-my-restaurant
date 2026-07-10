@@ -10,6 +10,7 @@ Endpoints:
   POST   /pins/{id}/unlink           undo a venue link (keep the pin)
   POST   /pins/{id}/reject           dismiss a wrong candidate (hide it next time)
   DELETE /pins/{id}                  remove an imported pin entirely
+  POST   /pins/clear-unlinked        delete every unlinked pin (prune import noise)
   GET    /venues/search              free-text provider venue search (search-to-add)
   GET    /availability               fan out across linked pins for date/time/party
   GET    /availability/window        one linked pin across the next N days
@@ -338,6 +339,18 @@ def delete_pin(pin_id: int, session: Session = Depends(get_session)):
     session.delete(pin)
     session.commit()
     return {"ok": True, "pin_id": pin_id}
+
+
+@app.post("/pins/clear-unlinked", dependencies=[Depends(require_key)])
+def clear_unlinked_pins(session: Session = Depends(get_session)):
+    """Delete every pin with no venue link — prunes bulk-import noise in one
+    call. Linked pins are untouched. POST (not DELETE) so it can never be
+    mistaken for DELETE /pins/{id}."""
+    unlinked = session.exec(select(Pin).where(Pin.venue_id == None)).all()  # noqa: E711
+    for p in unlinked:
+        session.delete(p)
+    session.commit()
+    return {"deleted": len(unlinked)}
 
 
 @app.post("/pins/{pin_id}/unlink", dependencies=[Depends(require_key)])
