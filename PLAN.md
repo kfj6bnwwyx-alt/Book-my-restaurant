@@ -31,9 +31,11 @@ you. Tell Claude "add X to the plan" any time and it lands here.
 - [x] **Bug fix: reserve results said "Failed" on success** — the server returns `confirmed`/`taken`/`failed` per slot but the iOS ReserveResultSheet matched on `booked`, so every successful multi-select booking rendered red. iOS now matches the server strings.
 - [x] **Bug fix: "tonight" vanished after ~8 PM ET** — `/availability/window` used naive `date.today()` in a UTC container, so the 14-day window started tomorrow during the app's core evening use. Now computed in America/New_York. **Fix is on `ios-design-buildout`; it reaches the live server only after merge to `main` + HA Rebuild.**
 - [x] **Bug fix: share-import no longer pins failed geocodes to downtown Manhattan** — a shared place that can't be geocoded now imports name-only (lat/lng 0) so "Resolve missing locations" backfills it.
+- [x] **Search-to-add from Resy/OpenTable**: Add-a-spot now searches the booking providers directly (`GET /venues/search`) and creates born-linked pins (`POST /pins`, dedupes on provider+venue). Apple Maps demoted to a fallback section (adds unlinked). Server has its first pytest suite (`server/tests/`).
+- [x] **Clear unlinked spots** (Settings): `POST /pins/clear-unlinked` deletes all import noise in one call, linked spots kept.
 
 ## Needs you (setup)
-- [ ] **Rebuild the HA add-on** — *do this again*: `main` now has the timezone fix for `/availability/window` (PR #1). HA → Apps → ResyBooker → ⋮ → Rebuild. Verified locally; the live server still runs the pre-merge build until this.
+- [ ] **Rebuild the HA add-on** — *do this again*: `main` now has the timezone fix for `/availability/window` (PR #1). HA → Apps → ResyBooker → ⋮ → Rebuild. Verified locally; the live server still runs the pre-merge build until this. Once the search-to-add branch merges, the rebuild also picks up `GET /venues/search`, `POST /pins`, `POST /pins/clear-unlinked` — until then the add sheet shows the out-of-date notice and Settings clear fails.
 - [x] ~~Rebuild for pin delete/unlink/reject + `GET /availability/window`~~ — done (routes confirmed live).
 - [x] **Open `design/Book-my-restaurant.pen` in Pencil** — done; design aligned to the app
 - [x] **Share extension App Group**: added `group.house-connect.Book-my-restaurant` to both targets (entitlements wired)

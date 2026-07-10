@@ -130,6 +130,9 @@ struct SettingsSheet: View {
     @State private var showingImport = false
     @State private var resolving = false
     @State private var resolveMessage: String?
+    @State private var confirmClear = false
+    @State private var clearing = false
+    @State private var clearMessage: String?
 
     var body: some View {
         NavigationStack {
@@ -153,6 +156,9 @@ struct SettingsSheet: View {
                         }
                         if viewModel.unlocatedCount > 0 {
                             resolveRow
+                        }
+                        if viewModel.unlinkedCount > 0 || clearMessage != nil {
+                            clearUnlinkedRow
                         }
                     }
                     .padding(18)
@@ -216,6 +222,58 @@ struct SettingsSheet: View {
         }
         .buttonStyle(.plain)
         .disabled(resolving)
+    }
+
+    /// One-tap prune of bulk-import noise: deletes every spot that was never
+    /// linked to a venue. Linked spots are kept; anything deleted can be
+    /// re-added in seconds via search.
+    private var clearUnlinkedRow: some View {
+        Button {
+            guard !clearing, viewModel.unlinkedCount > 0 else { return }
+            confirmClear = true
+        } label: {
+            HStack(spacing: RBSpacing.md) {
+                Image(systemName: "trash")
+                    .font(.system(size: 17))
+                    .foregroundStyle(RBColor.red)
+                    .frame(width: 26)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(clearing ? "Clearing…" : "Clear unlinked spots")
+                        .font(.system(size: 16, weight: .semibold)).foregroundStyle(RBColor.textPrimary)
+                    Text(clearMessage ?? "Delete all \(viewModel.unlinkedCount) spots not linked to a venue")
+                        .font(.system(size: 12.5)).foregroundStyle(RBColor.textMuted)
+                }
+                Spacer()
+                if clearing {
+                    ProgressView().tint(RBColor.accent)
+                } else {
+                    Image(systemName: "chevron.right").font(.system(size: 14, weight: .semibold)).foregroundStyle(RBColor.textMuted)
+                }
+            }
+            .padding(14)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .rbCard(fill: RBColor.surface)
+        }
+        .buttonStyle(.plain)
+        .disabled(clearing)
+        .confirmationDialog(
+            "Delete \(viewModel.unlinkedCount) unlinked spots?",
+            isPresented: $confirmClear,
+            titleVisibility: .visible
+        ) {
+            Button("Delete \(viewModel.unlinkedCount) spots", role: .destructive) {
+                clearing = true
+                Task {
+                    if let n = await viewModel.clearUnlinked() {
+                        clearMessage = "Deleted \(n) spot\(n == 1 ? "" : "s")"
+                    }
+                    clearing = false
+                }
+            }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("Linked spots are kept. You can re-add anything via search.")
+        }
     }
 
     private func row(icon: String, title: String, detail: String, detailColor: Color, action: @escaping () -> Void) -> some View {

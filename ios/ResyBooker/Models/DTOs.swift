@@ -121,6 +121,41 @@ struct PinLocationRequest: Codable {
     let address: String?
 }
 
+/// One row from GET /venues/search — a bookable venue on Resy/OpenTable.
+/// Resy results carry coordinates; OpenTable's don't (lat/lng nil).
+struct VenueSearchResultDTO: Codable, Identifiable, Hashable {
+    var id: String { venueId }
+    let venueId: String
+    let name: String?
+    let locality: String?
+    let lat: Double?
+    let lng: Double?
+
+    enum CodingKeys: String, CodingKey {
+        case name, locality, lat, lng
+        case venueId = "venue_id"
+    }
+}
+
+/// POST /pins — create a pin already linked to a provider venue.
+struct PinCreateRequest: Codable {
+    let name: String
+    let address: String?
+    let lat: Double
+    let lng: Double
+    let provider: String
+    let venueId: String
+
+    enum CodingKeys: String, CodingKey {
+        case name, address, lat, lng, provider
+        case venueId = "venue_id"
+    }
+}
+
+struct ClearUnlinkedResponse: Codable {
+    let deleted: Int
+}
+
 struct BookRequest: Codable {
     let pinId: Int?
     let venueId: String

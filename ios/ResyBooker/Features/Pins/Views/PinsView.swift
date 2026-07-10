@@ -90,8 +90,8 @@ struct PinsView: View {
             }
             .sheet(isPresented: $showingAdd) {
                 if let vm = viewModel {
-                    AddSpotSheet(viewModel: vm) {
-                        toastText = "Spot added"
+                    AddSpotSheet(viewModel: vm) { message in
+                        toastText = message
                         showToast = true
                     }
                 }

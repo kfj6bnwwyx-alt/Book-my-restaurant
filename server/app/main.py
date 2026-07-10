@@ -4,11 +4,14 @@ Endpoints:
   GET    /health
   GET    /pins                       list saved pins + link status
   POST   /pins/import                import Google Takeout GeoJSON
+  POST   /pins                       create a pin already linked to a venue (search-to-add)
   GET    /pins/{id}/candidates       provider venue candidates for a pin
   POST   /pins/{id}/link             confirm pin -> venue mapping
   POST   /pins/{id}/unlink           undo a venue link (keep the pin)
   POST   /pins/{id}/reject           dismiss a wrong candidate (hide it next time)
   DELETE /pins/{id}                  remove an imported pin entirely
+  POST   /pins/clear-unlinked        delete every unlinked pin (prune import noise)
+  GET    /venues/search              free-text provider venue search (search-to-add)
   GET    /availability               fan out across linked pins for date/time/party
   GET    /availability/window        one linked pin across the next N days
   POST   /book                       book a Resy slot
@@ -92,6 +95,17 @@ class PinLocationBody(BaseModel):
     lat: float
     lng: float
     address: Optional[str] = None
+
+
+class PinCreateBody(BaseModel):
+    """Search-to-add: create a pin already linked to a provider venue."""
+
+    name: str
+    address: Optional[str] = None
+    lat: float = 0.0  # 0/0 = unlocated; 'resolve missing locations' backfills
+    lng: float = 0.0
+    provider: str  # "resy" | "opentable"
+    venue_id: str
 
 
 class RejectBody(BaseModel):
@@ -223,6 +237,45 @@ def import_pins(body: ImportBody, session: Session = Depends(get_session)):
     return {"imported": added, "total_parsed": len(parsed)}
 
 
+def _pin_json(p: Pin, existing: bool = False) -> dict:
+    return {
+        "id": p.id,
+        "name": p.name,
+        "address": p.address,
+        "lat": p.lat,
+        "lng": p.lng,
+        "provider": p.provider,
+        "venue_id": p.venue_id,
+        "linked": p.venue_id is not None,
+        "existing": existing,
+    }
+
+
+@app.post("/pins", dependencies=[Depends(require_key)])
+def create_pin(body: PinCreateBody, session: Session = Depends(get_session)):
+    """Create a born-linked pin from a /venues/search result. Dedupes on
+    (provider, venue_id) so re-adding a venue can't duplicate it."""
+    dup = session.exec(
+        select(Pin).where(Pin.provider == body.provider, Pin.venue_id == body.venue_id)
+    ).first()
+    if dup:
+        return _pin_json(dup, existing=True)
+    pin = Pin(
+        name=body.name,
+        address=body.address,
+        lat=body.lat,
+        lng=body.lng,
+        provider=body.provider,
+        venue_id=body.venue_id,
+        linked_name=body.name,
+        linked_at=datetime.utcnow(),
+    )
+    session.add(pin)
+    session.commit()
+    session.refresh(pin)
+    return _pin_json(pin)
+
+
 @app.get("/pins/{pin_id}/candidates", dependencies=[Depends(require_key)])
 async def pin_candidates(
     pin_id: int,
@@ -288,6 +341,18 @@ def delete_pin(pin_id: int, session: Session = Depends(get_session)):
     return {"ok": True, "pin_id": pin_id}
 
 
+@app.post("/pins/clear-unlinked", dependencies=[Depends(require_key)])
+def clear_unlinked_pins(session: Session = Depends(get_session)):
+    """Delete every pin with no venue link — prunes bulk-import noise in one
+    call. Linked pins are untouched. POST (not DELETE) so it can never be
+    mistaken for DELETE /pins/{id}."""
+    unlinked = session.exec(select(Pin).where(Pin.venue_id == None)).all()  # noqa: E711
+    for p in unlinked:
+        session.delete(p)
+    session.commit()
+    return {"deleted": len(unlinked)}
+
+
 @app.post("/pins/{pin_id}/unlink", dependencies=[Depends(require_key)])
 def unlink_pin(pin_id: int, session: Session = Depends(get_session)):
     """Undo a venue link without deleting the pin."""
@@ -316,6 +381,24 @@ def reject_candidate(pin_id: int, body: RejectBody, session: Session = Depends(g
     session.add(pin)
     session.commit()
     return {"ok": True, "pin_id": pin_id, "rejected": sorted(rejected)}
+
+
+# ---------- venue search (search-to-add) ----------
+
+
+@app.get("/venues/search", dependencies=[Depends(require_key)])
+async def venues_search(
+    q: str = Query(..., min_length=1),
+    provider: str = Query("resy"),
+    lat: float = Query(40.7128),
+    lng: float = Query(-74.006),
+):
+    """Free-text venue search on a booking provider. Results are bookable
+    venues in the provider's own relevance order; the app adds one as a
+    born-linked pin via POST /pins."""
+    if provider == "resy":
+        return await resy.search_venues(q, lat, lng)
+    return await opentable.search_restaurants(q, lat, lng)
 
 
 # ---------- availability fan-out ----------
