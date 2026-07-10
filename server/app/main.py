@@ -9,6 +9,7 @@ Endpoints:
   POST   /pins/{id}/unlink           undo a venue link (keep the pin)
   POST   /pins/{id}/reject           dismiss a wrong candidate (hide it next time)
   DELETE /pins/{id}                  remove an imported pin entirely
+  GET    /venues/search              free-text provider venue search (search-to-add)
   GET    /availability               fan out across linked pins for date/time/party
   GET    /availability/window        one linked pin across the next N days
   POST   /book                       book a Resy slot
@@ -316,6 +317,24 @@ def reject_candidate(pin_id: int, body: RejectBody, session: Session = Depends(g
     session.add(pin)
     session.commit()
     return {"ok": True, "pin_id": pin_id, "rejected": sorted(rejected)}
+
+
+# ---------- venue search (search-to-add) ----------
+
+
+@app.get("/venues/search", dependencies=[Depends(require_key)])
+async def venues_search(
+    q: str = Query(..., min_length=1),
+    provider: str = Query("resy"),
+    lat: float = Query(40.7128),
+    lng: float = Query(-74.006),
+):
+    """Free-text venue search on a booking provider. Results are bookable
+    venues in the provider's own relevance order; the app adds one as a
+    born-linked pin via POST /pins."""
+    if provider == "resy":
+        return await resy.search_venues(q, lat, lng)
+    return await opentable.search_restaurants(q, lat, lng)
 
 
 # ---------- availability fan-out ----------
