@@ -62,11 +62,7 @@ struct SkeletonVenueCard: View {
         }
         .padding(RBSpacing.lg)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(
-            RoundedRectangle(cornerRadius: RBRadius.card, style: .continuous)
-                .fill(RBColor.surface)
-                .overlay(RoundedRectangle(cornerRadius: RBRadius.card, style: .continuous).stroke(RBColor.border, lineWidth: 1))
-        )
+        .rbCard()
     }
 }
 

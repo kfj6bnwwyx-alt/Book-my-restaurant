@@ -6,11 +6,58 @@
 	objectVersion = 77;
 	objects = {
 
+/* Begin PBXBuildFile section */
+		B588C05E2FD6179800D1CC1E /* ShareToResyBooker.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = B588C0542FD6179800D1CC1E /* ShareToResyBooker.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+/* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		B588C05C2FD6179800D1CC1E /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = B58970C82FD58C7600885171 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = B588C0532FD6179800D1CC1E;
+			remoteInfo = ShareToResyBooker;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXCopyFilesBuildPhase section */
+		B588C05F2FD6179800D1CC1E /* Embed Foundation Extensions */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 13;
+			files = (
+				B588C05E2FD6179800D1CC1E /* ShareToResyBooker.appex in Embed Foundation Extensions */,
+			);
+			name = "Embed Foundation Extensions";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXCopyFilesBuildPhase section */
+
 /* Begin PBXFileReference section */
-		B58970D02FD58C7600885171 /* ResyBooker.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "ResyBooker.app"; sourceTree = BUILT_PRODUCTS_DIR; };
+		B588C0542FD6179800D1CC1E /* ShareToResyBooker.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = ShareToResyBooker.appex; sourceTree = BUILT_PRODUCTS_DIR; };
+		B58970D02FD58C7600885171 /* ResyBooker.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = ResyBooker.app; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
+/* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
+		B588C0622FD6179800D1CC1E /* Exceptions for "ShareToResyBooker" folder in "ShareToResyBooker" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Info.plist,
+			);
+			target = B588C0532FD6179800D1CC1E /* ShareToResyBooker */;
+		};
+/* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
+
 /* Begin PBXFileSystemSynchronizedRootGroup section */
+		B588C0552FD6179800D1CC1E /* ShareToResyBooker */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				B588C0622FD6179800D1CC1E /* Exceptions for "ShareToResyBooker" folder in "ShareToResyBooker" target */,
+			);
+			path = ShareToResyBooker;
+			sourceTree = "<group>";
+		};
 		B58970D22FD58C7600885171 /* ResyBooker */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
 			path = ResyBooker;
@@ -19,6 +66,13 @@
 /* End PBXFileSystemSynchronizedRootGroup section */
 
 /* Begin PBXFrameworksBuildPhase section */
+		B588C0512FD6179800D1CC1E /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		B58970CD2FD58C7600885171 /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
@@ -33,6 +87,7 @@
 			isa = PBXGroup;
 			children = (
 				B58970D22FD58C7600885171 /* ResyBooker */,
+				B588C0552FD6179800D1CC1E /* ShareToResyBooker */,
 				B58970D12FD58C7600885171 /* Products */,
 			);
 			sourceTree = "<group>";
@@ -41,6 +96,7 @@
 			isa = PBXGroup;
 			children = (
 				B58970D02FD58C7600885171 /* ResyBooker.app */,
+				B588C0542FD6179800D1CC1E /* ShareToResyBooker.appex */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -48,6 +104,28 @@
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
+		B588C0532FD6179800D1CC1E /* ShareToResyBooker */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = B588C0632FD6179800D1CC1E /* Build configuration list for PBXNativeTarget "ShareToResyBooker" */;
+			buildPhases = (
+				B588C0502FD6179800D1CC1E /* Sources */,
+				B588C0512FD6179800D1CC1E /* Frameworks */,
+				B588C0522FD6179800D1CC1E /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			fileSystemSynchronizedGroups = (
+				B588C0552FD6179800D1CC1E /* ShareToResyBooker */,
+			);
+			name = ShareToResyBooker;
+			packageProductDependencies = (
+			);
+			productName = ShareToResyBooker;
+			productReference = B588C0542FD6179800D1CC1E /* ShareToResyBooker.appex */;
+			productType = "com.apple.product-type.app-extension";
+		};
 		B58970CF2FD58C7600885171 /* ResyBooker */ = {
 			isa = PBXNativeTarget;
 			buildConfigurationList = B58970DB2FD58C7800885171 /* Build configuration list for PBXNativeTarget "ResyBooker" */;
@@ -55,18 +133,20 @@
 				B58970CC2FD58C7600885171 /* Sources */,
 				B58970CD2FD58C7600885171 /* Frameworks */,
 				B58970CE2FD58C7600885171 /* Resources */,
+				B588C05F2FD6179800D1CC1E /* Embed Foundation Extensions */,
 			);
 			buildRules = (
 			);
 			dependencies = (
+				B588C05D2FD6179800D1CC1E /* PBXTargetDependency */,
 			);
 			fileSystemSynchronizedGroups = (
 				B58970D22FD58C7600885171 /* ResyBooker */,
 			);
-			name = "ResyBooker";
+			name = ResyBooker;
 			packageProductDependencies = (
 			);
-			productName = "ResyBooker";
+			productName = ResyBooker;
 			productReference = B58970D02FD58C7600885171 /* ResyBooker.app */;
 			productType = "com.apple.product-type.application";
 		};
@@ -80,6 +160,9 @@
 				LastSwiftUpdateCheck = 2640;
 				LastUpgradeCheck = 2640;
 				TargetAttributes = {
+					B588C0532FD6179800D1CC1E = {
+						CreatedOnToolsVersion = 26.4.1;
+					};
 					B58970CF2FD58C7600885171 = {
 						CreatedOnToolsVersion = 26.4.1;
 					};
@@ -100,11 +183,19 @@
 			projectRoot = "";
 			targets = (
 				B58970CF2FD58C7600885171 /* ResyBooker */,
+				B588C0532FD6179800D1CC1E /* ShareToResyBooker */,
 			);
 		};
 /* End PBXProject section */
 
 /* Begin PBXResourcesBuildPhase section */
+		B588C0522FD6179800D1CC1E /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		B58970CE2FD58C7600885171 /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
@@ -115,6 +206,13 @@
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
+		B588C0502FD6179800D1CC1E /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		B58970CC2FD58C7600885171 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
@@ -124,7 +222,78 @@
 		};
 /* End PBXSourcesBuildPhase section */
 
+/* Begin PBXTargetDependency section */
+		B588C05D2FD6179800D1CC1E /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = B588C0532FD6179800D1CC1E /* ShareToResyBooker */;
+			targetProxy = B588C05C2FD6179800D1CC1E /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
+
 /* Begin XCBuildConfiguration section */
+		B588C0602FD6179800D1CC1E /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_ENTITLEMENTS = ShareToResyBooker/ShareToResyBooker.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 2SD6Z2L5YZ;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = ShareToResyBooker/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = ShareToResyBooker;
+				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				IPHONEOS_DEPLOYMENT_TARGET = 26.4;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = "house-connect.Book-my-restaurant.ShareToResyBooker";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SKIP_INSTALL = YES;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		B588C0612FD6179800D1CC1E /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_ENTITLEMENTS = ShareToResyBooker/ShareToResyBooker.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 2SD6Z2L5YZ;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = ShareToResyBooker/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = ShareToResyBooker;
+				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				IPHONEOS_DEPLOYMENT_TARGET = 26.4;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = "house-connect.Book-my-restaurant.ShareToResyBooker";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SKIP_INSTALL = YES;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				VALIDATE_PRODUCT = YES;
+			};
+			name = Release;
+		};
 		B58970D92FD58C7800885171 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
@@ -246,6 +415,7 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_ENTITLEMENTS = ResyBooker/ResyBooker.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = 2SD6Z2L5YZ;
@@ -290,6 +460,7 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_ENTITLEMENTS = ResyBooker/ResyBooker.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = 2SD6Z2L5YZ;
@@ -332,6 +503,15 @@
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
+		B588C0632FD6179800D1CC1E /* Build configuration list for PBXNativeTarget "ShareToResyBooker" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				B588C0602FD6179800D1CC1E /* Debug */,
+				B588C0612FD6179800D1CC1E /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
 		B58970CB2FD58C7600885171 /* Build configuration list for PBXProject "ResyBooker" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (

@@ -36,7 +36,7 @@ enum RBColor {
     // Text
     static let textPrimary = Color(hex: "ECEEF2")
     static let textSecondary = Color(hex: "A0A4AD")
-    static let textMuted = Color(hex: "686C76")
+    static let textMuted = Color(hex: "90949E")
 
     // Accent: signal orange (actions, selection, brand)
     static let accent = Color(hex: "F26A35")

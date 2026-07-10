@@ -32,11 +32,11 @@ point it at the server and build the screens that aren't coded yet.
 - **resy_email / resy_password**: in the add-on config. The server logs in and
   auto-refreshes the Resy token from these (a browser-like header set is required,
   already handled in `server/app/resy.py`).
-- **resy_payment_method_id**: `17474744` (amex ending 3001).
-  ⚠️ **That card is expired (12/2025).** Availability, drops, and watches work,
-  but the final **booking step will be rejected by Resy** until you add a current
-  card at resy.com, then `GET /resy/payment-methods` again for the new id and
-  update the config.
+- **resy_payment_method_id**: `17474744` (amex ending 3001). The card was
+  reissued past its printed 12/2025 expiry and Resy's stored record still works
+  (confirmed in use, Jul 2026) — the id is unchanged, nothing to update. If
+  booking ever starts failing on payment, add a current card at resy.com, then
+  `GET /resy/payment-methods` for the new id and update the config.
 - **Database**: SQLite on the add-on's persistent `/data` volume. To wipe it,
   delete `/data/resybooker.db` or uninstall the add-on (clears `/data`); the
   schema (pins, bookings, drops, watches) is recreated on next start.
@@ -87,9 +87,7 @@ point it at the server and build the screens that aren't coded yet.
 3. Set `ios/ResyBooker/Utilities/Constants.swift`:
    `apiBaseURL = https://resy.brentbrooks.com`, `appKey =` (from the HA add-on
    config).
-4. Add a valid card on resy.com, re-run `GET /resy/payment-methods`, and update
-   `resy_payment_method_id` in the add-on config so booking works.
-5. Build the iOS screens that aren't coded yet: the **Drops** and **Watches**
+4. Build the iOS screens that aren't coded yet: the **Drops** and **Watches**
    features and the loading/empty/error/success **state screens**. Start from the
    `DesignSystem` components and follow the Pencil designs / `docs/design-notes.md`.
 6. Optional: smoke-test the live API end to end (import pins → link → availability)

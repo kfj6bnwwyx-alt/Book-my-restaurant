@@ -11,13 +11,3 @@ struct ResyBookerApp: App {
     }
 }
 
-struct RootView: View {
-    var body: some View {
-        TabView {
-            AvailabilityView()
-                .tabItem { Label("Tables", systemImage: "fork.knife") }
-            PinsView()
-                .tabItem { Label("Spots", systemImage: "mappin.and.ellipse") }
-        }
-    }
-}

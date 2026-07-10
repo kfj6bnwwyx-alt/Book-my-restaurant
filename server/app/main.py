@@ -377,7 +377,8 @@ async def availability_window(
     """One restaurant across the next N days: the restaurant-first view that
     complements /availability (all restaurants on one date). Mirrors the drop
     window result shape ({day, slots, available}) so the app reuses the grid."""
-    from datetime import date, timedelta
+    from datetime import timedelta
+    from zoneinfo import ZoneInfo
 
     pin = session.get(Pin, pin_id)
     if not pin:
@@ -385,7 +386,9 @@ async def availability_window(
     if not pin.venue_id:
         raise HTTPException(409, "pin is not linked to a venue yet")
 
-    start = date.today()
+    # "Today" in the diner's timezone, not the container's (UTC). A naive
+    # date.today() rolls over at 8 PM ET and tonight vanishes from the window.
+    start = datetime.now(ZoneInfo("America/New_York")).date()
     day_strs = [(start + timedelta(days=i)).isoformat() for i in range(days)]
 
     async def one_day(d: str):

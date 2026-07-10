@@ -12,6 +12,21 @@ enum APIError: LocalizedError {
         case let .transport(msg): return "Network: \(msg)"
         }
     }
+
+    /// 401 from the server means the X-App-Key is missing or wrong.
+    var isUnauthorized: Bool {
+        if case .badStatus(401, _) = self { return true }
+        return false
+    }
+
+    /// A 404 whose body is FastAPI's default unmatched-route response
+    /// (`{"detail":"Not Found"}`). This means the running server build predates
+    /// the endpoint the app just called — i.e. the server needs a rebuild — as
+    /// opposed to a 404 with a custom detail like "pin not found".
+    var isMissingEndpoint: Bool {
+        if case let .badStatus(404, body) = self { return body.contains("\"Not Found\"") }
+        return false
+    }
 }
 
 actor APIClient {
@@ -64,6 +79,22 @@ actor APIClient {
         catch { throw APIError.decoding(String(describing: error)) }
     }
 
+    // MARK: - Key check
+
+    enum KeyCheck: Sendable { case ok, unauthorized, unreachable(String) }
+
+    /// Hits an authed endpoint to confirm the current app key is accepted.
+    func checkKey() async -> KeyCheck {
+        do {
+            _ = try await request("/pins")
+            return .ok
+        } catch let error as APIError {
+            return error.isUnauthorized ? .unauthorized : .unreachable(error.errorDescription ?? "Server unreachable")
+        } catch {
+            return .unreachable(error.localizedDescription)
+        }
+    }
+
     // MARK: - Pins
 
     func fetchPins() async throws -> [PinDTO] {
@@ -90,6 +121,25 @@ actor APIClient {
         _ = try await request("/pins/\(pinId)/link", method: "POST", body: body)
     }
 
+    func updatePinLocation(pinId: Int, lat: Double, lng: Double, address: String?) async throws {
+        let body = try encoder.encode(PinLocationRequest(lat: lat, lng: lng, address: address))
+        _ = try await request("/pins/\(pinId)", method: "PATCH", body: body)
+    }
+
+    func deletePin(_ id: Int) async throws {
+        _ = try await request("/pins/\(id)", method: "DELETE")
+    }
+
+    func unlinkPin(_ id: Int) async throws {
+        _ = try await request("/pins/\(id)/unlink", method: "POST")
+    }
+
+    /// Dismiss a wrong candidate so /candidates never resurfaces it.
+    func rejectCandidate(pinId: Int, provider: String, venueId: String) async throws {
+        let body = try encoder.encode(["provider": provider, "venue_id": venueId])
+        _ = try await request("/pins/\(pinId)/reject", method: "POST", body: body)
+    }
+
     // MARK: - Availability
 
     func availability(
@@ -108,11 +158,99 @@ actor APIClient {
         return try decode(AvailabilityResponse.self, data)
     }
 
+    /// One linked pin across the next `days` days (restaurant-first view).
+    func availabilityWindow(
+        pinId: Int,
+        partySize: Int,
+        time: String = "19:00:00",
+        days: Int = 14
+    ) async throws -> AvailabilityWindowResponse {
+        let q = [
+            URLQueryItem(name: "pin_id", value: String(pinId)),
+            URLQueryItem(name: "party_size", value: String(partySize)),
+            URLQueryItem(name: "time", value: time),
+            URLQueryItem(name: "days", value: String(days)),
+        ]
+        let data = try await request("/availability/window", query: q)
+        return try decode(AvailabilityWindowResponse.self, data)
+    }
+
     // MARK: - Booking
 
     func book(_ req: BookRequest) async throws -> BookResponse {
         let body = try encoder.encode(req)
         let data = try await request("/book", method: "POST", body: body)
         return try decode(BookResponse.self, data)
+    }
+
+    // MARK: - Drops
+
+    func fetchDrops() async throws -> [DropDTO] {
+        let data = try await request("/drops")
+        return try decode([DropDTO].self, data)
+    }
+
+    func createDrop(_ req: DropCreateRequest) async throws -> DropDTO {
+        let body = try encoder.encode(req)
+        let data = try await request("/drops", method: "POST", body: body)
+        return try decode(DropDTO.self, data)
+    }
+
+    func drop(_ id: Int) async throws -> DropDTO {
+        let data = try await request("/drops/\(id)")
+        return try decode(DropDTO.self, data)
+    }
+
+    func updateDrop(_ id: Int, _ req: DropUpdateRequest) async throws -> DropDTO {
+        let body = try encoder.encode(req)
+        let data = try await request("/drops/\(id)", method: "PATCH", body: body)
+        return try decode(DropDTO.self, data)
+    }
+
+    func deleteDrop(_ id: Int) async throws {
+        _ = try await request("/drops/\(id)", method: "DELETE")
+    }
+
+    func dropWindow(_ id: Int, partySize: Int) async throws -> DropWindowResponse {
+        let data = try await request(
+            "/drops/\(id)/window",
+            query: [URLQueryItem(name: "party_size", value: String(partySize))]
+        )
+        return try decode(DropWindowResponse.self, data)
+    }
+
+    func reserve(_ id: Int, _ req: ReserveRequest) async throws -> ReserveResponse {
+        let body = try encoder.encode(req)
+        let data = try await request("/drops/\(id)/reserve", method: "POST", body: body)
+        return try decode(ReserveResponse.self, data)
+    }
+
+    // MARK: - Watches
+
+    func fetchWatches() async throws -> [WatchDTO] {
+        let data = try await request("/watches")
+        return try decode([WatchDTO].self, data)
+    }
+
+    func createWatch(_ req: WatchCreateRequest) async throws -> WatchDTO {
+        let body = try encoder.encode(req)
+        let data = try await request("/watches", method: "POST", body: body)
+        return try decode(WatchDTO.self, data)
+    }
+
+    func updateWatch(_ id: Int, _ req: WatchUpdateRequest) async throws -> WatchDTO {
+        let body = try encoder.encode(req)
+        let data = try await request("/watches/\(id)", method: "PATCH", body: body)
+        return try decode(WatchDTO.self, data)
+    }
+
+    func deleteWatch(_ id: Int) async throws {
+        _ = try await request("/watches/\(id)", method: "DELETE")
+    }
+
+    /// Trigger one poll right now; the server mutates the watch as a side effect.
+    func checkWatch(_ id: Int) async throws -> WatchCheckResponse {
+        let data = try await request("/watches/\(id)/check", method: "POST")
+        return try decode(WatchCheckResponse.self, data)
     }
 }

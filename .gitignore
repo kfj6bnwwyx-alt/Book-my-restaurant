@@ -2,6 +2,10 @@
 design/
 *.pen
 
+# Local tooling / OneDrive-synced strays
+.impeccable/
+/Book my restaurant/
+
 # Python
 __pycache__/
 *.py[cod]
@@ -41,3 +45,7 @@ Packages/
 .idea/
 .vscode/
 *.swp
+
+# MemPalace per-project files (issue #185)
+mempalace.yaml
+entities.json

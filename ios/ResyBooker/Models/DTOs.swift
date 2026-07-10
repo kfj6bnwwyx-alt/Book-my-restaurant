@@ -73,6 +73,26 @@ struct AvailabilityResponse: Codable {
     }
 }
 
+/// GET /availability/window — one restaurant across the next N days. Reuses
+/// DropDayDTO ({day, slots, available}) so the per-restaurant view and the drop
+/// grid render days the same way.
+struct AvailabilityWindowResponse: Codable {
+    let pinId: Int
+    let name: String
+    let provider: String?
+    let venueId: String?
+    let partySize: Int
+    let days: Int
+    let results: [DropDayDTO]
+
+    enum CodingKeys: String, CodingKey {
+        case name, provider, days, results
+        case pinId = "pin_id"
+        case venueId = "venue_id"
+        case partySize = "party_size"
+    }
+}
+
 struct ImportResponse: Codable {
     let imported: Int
     let totalParsed: Int
@@ -93,6 +113,12 @@ struct LinkRequest: Codable {
         case venueId = "venue_id"
         case linkedName = "linked_name"
     }
+}
+
+struct PinLocationRequest: Codable {
+    let lat: Double
+    let lng: Double
+    let address: String?
 }
 
 struct BookRequest: Codable {

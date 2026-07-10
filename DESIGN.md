@@ -9,7 +9,7 @@ colors:
   scrim: "#0D0E10"
   text-primary: "#ECEEF2"
   text-secondary: "#A0A4AD"
-  text-muted: "#686C76"
+  text-muted: "#90949E"
   accent: "#F26A35"
   accent-ink: "#1E1206"
   accent-soft: "#3A2415"
@@ -164,7 +164,9 @@ A cool-tinted neutral ink carrying two committed accents and two semantic alerts
 - **Border** (#383B42): hairline strokes and dividers.
 - **Scrim** (#0D0E10): the dimmed backdrop behind presented sheets.
 - **Text Primary** (#ECEEF2), **Text Secondary** (#A0A4AD), **Text Muted**
-  (#686C76): the three-step text ramp.
+  (#90949E): the three-step text ramp. Muted clears WCAG AA (>=4.5:1) on bg,
+  surface, and surface-2, so it is safe for meaning-bearing labels, not only
+  decorative text.
 
 ### Named Rules
 **The Vital Green Rule.** Green is a signal, not a surface. It appears only on

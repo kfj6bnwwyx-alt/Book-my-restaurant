@@ -1,63 +1,118 @@
 import SwiftUI
 
+/// One venue's availability, matching the Pencil Tables cards. Available venues
+/// show a green "N open" badge and tappable time chips; unavailable ones recede
+/// (smaller, muted) with a neutral dash, and lookup failures use an amber
+/// triangle plus an amber message. Color never does two jobs: green = available,
+/// amber = caution, orange is reserved for the user's action (the time chips).
 struct VenueAvailabilityCard: View {
     let venue: VenueAvailabilityDTO
     let onPickSlot: (SlotDTO) -> Void
+    /// Open this one venue across upcoming dates (the restaurant-first pivot).
+    var onOpenDates: (() -> Void)? = nil
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            HStack {
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(venue.name).font(.headline)
-                    if let p = venue.provider {
-                        Text(p.capitalized)
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                    }
-                }
-                Spacer()
-                if venue.available {
-                    Text("\(venue.slots.count)")
-                        .font(.subheadline.weight(.semibold))
-                        .foregroundStyle(.green)
-                }
-            }
-
-            if venue.available {
-                ScrollView(.horizontal, showsIndicators: false) {
-                    HStack(spacing: 8) {
-                        ForEach(bookableSlots, id: \.self) { slot in
-                            Button { onPickSlot(slot) } label: {
-                                Text(SlotTime.display(slot.time))
-                                    .font(.subheadline.weight(.medium))
-                                    .padding(.horizontal, 12)
-                                    .padding(.vertical, 7)
-                                    .background(.tint.opacity(0.15), in: Capsule())
-                            }
-                            .buttonStyle(.plain)
-                            .disabled(slot.configToken == nil)
-                            .opacity(slot.configToken == nil ? 0.5 : 1)
-                            .accessibilityLabel(
-                                "Book \(venue.name) at \(SlotTime.display(slot.time))"
-                            )
-                        }
-                    }
-                }
-            } else if let err = venue.error {
-                Text(err)
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                    .lineLimit(2)
-            } else {
-                Text("No tables")
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
-            }
+        if venue.available {
+            availableCard
+        } else {
+            unavailableCard
         }
-        .padding(14)
-        .background(.background.secondary, in: RoundedRectangle(cornerRadius: 14))
     }
 
-    // Only Resy slots carry a config_token, so only they are bookable in-app.
-    private var bookableSlots: [SlotDTO] { venue.slots }
+    // MARK: Available
+
+    private var availableCard: some View {
+        VStack(alignment: .leading, spacing: RBSpacing.lg) {
+            HStack(alignment: .center, spacing: RBSpacing.sm) {
+                nameBlock(nameSize: 17, nameWeight: .bold,
+                          nameColor: RBColor.textPrimary, providerColor: RBColor.textSecondary)
+                Spacer(minLength: RBSpacing.sm)
+                openBadge
+                datesButton
+            }
+            RBFlowLayout(spacing: RBSpacing.sm) {
+                // Index-based ids: two slots can be value-equal (same time/token),
+                // which would collide under id: \.self and drop a chip.
+                ForEach(Array(venue.slots.enumerated()), id: \.offset) { _, slot in
+                    Button { onPickSlot(slot) } label: {
+                        Text(SlotTime.display(slot.time))
+                    }
+                    .buttonStyle(.rbChip(selected: false))
+                    .disabled(slot.configToken == nil)
+                    .opacity(slot.configToken == nil ? 0.5 : 1)
+                    .accessibilityLabel("Book \(venue.name) at \(SlotTime.display(slot.time))")
+                }
+            }
+        }
+        .padding(RBSpacing.lg)
+        .rbCard()
+    }
+
+    private var openBadge: some View {
+        HStack(spacing: 5) {
+            Image(systemName: "checkmark.circle.fill").font(.system(size: 13))
+            Text("\(venue.slots.count) open").font(.system(size: 12.5, weight: .bold))
+        }
+        .foregroundStyle(RBColor.success)
+        .padding(.vertical, 5)
+        .padding(.horizontal, 11)
+        .background(RBColor.successSoft, in: Capsule())
+    }
+
+    // MARK: Unavailable / error
+
+    private var unavailableCard: some View {
+        let isError = (venue.error != nil)
+        return VStack(alignment: .leading, spacing: 9) {
+            HStack(alignment: .top, spacing: RBSpacing.sm) {
+                nameBlock(nameSize: 16, nameWeight: .semibold,
+                          nameColor: RBColor.textSecondary, providerColor: RBColor.textMuted)
+                Spacer(minLength: RBSpacing.sm)
+                Image(systemName: isError ? "exclamationmark.triangle.fill" : "minus")
+                    .font(.system(size: 14))
+                    .foregroundStyle(isError ? RBColor.amber : RBColor.textMuted)
+                datesButton
+            }
+            Text(venue.error ?? "No tables for this date and party.")
+                .font(.system(size: 12.5))
+                .foregroundStyle(isError ? RBColor.amber : RBColor.textMuted)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .padding(RBSpacing.lg)
+        .rbCard()
+        .opacity(0.85)
+    }
+
+    @ViewBuilder
+    private var datesButton: some View {
+        if let onOpenDates {
+            Button(action: onOpenDates) {
+                Image(systemName: "calendar")
+                    .font(.system(size: 15, weight: .semibold))
+                    .foregroundStyle(RBColor.accent)
+                    .frame(width: 34, height: 34)
+                    .background(RBColor.surface2, in: RoundedRectangle(cornerRadius: 9, style: .continuous))
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel("See \(venue.name) across upcoming dates")
+        }
+    }
+
+    // MARK: Pieces
+
+    private func nameBlock(nameSize: CGFloat, nameWeight: Font.Weight,
+                           nameColor: Color, providerColor: Color) -> some View {
+        VStack(alignment: .leading, spacing: 3) {
+            Text(venue.name)
+                .font(.system(size: nameSize, weight: nameWeight))
+                .foregroundStyle(nameColor)
+                .fixedSize(horizontal: false, vertical: true)
+            if let p = venue.provider {
+                Text(p.providerDisplayName)
+                    .font(.system(size: 12))
+                    .foregroundStyle(providerColor)
+            }
+        }
+    }
+
 }
