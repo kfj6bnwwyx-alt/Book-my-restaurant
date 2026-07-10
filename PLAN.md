@@ -30,6 +30,9 @@ you. Tell Claude "add X to the plan" any time and it lands here.
 - [x] **"Server out of date" error**: a FastAPI default 404 on `/availability/window` now explains the HA rebuild fix instead of a raw "Server 404"
 - [x] **Watches** (iOS UI for the existing server endpoints): section on the Drops tab with status badges (watching/paused/found/booked/expired/error), detail view (check now, pause/resume, edit, remove), create sheet (night, party, time window, poll interval, notify/auto-book + deposit warning). Entry points: Drops tab, binoculars button on the per-restaurant dates view, and "Watch for a table" on its sold-out empty state. Resy only (server constraint).
 - [x] **Onboarding** first-run flow: 3 dark pages (welcome → three tabs → connect server), skippable, shown once; devices that already have a key never see it
+- [x] **Bug fix: reserve results said "Failed" on success** — the server returns `confirmed`/`taken`/`failed` per slot but the iOS ReserveResultSheet matched on `booked`, so every successful multi-select booking rendered red. iOS now matches the server strings.
+- [x] **Bug fix: "tonight" vanished after ~8 PM ET** — `/availability/window` used naive `date.today()` in a UTC container, so the 14-day window started tomorrow during the app's core evening use. Now computed in America/New_York. **Fix is on `ios-design-buildout`; it reaches the live server only after merge to `main` + HA Rebuild.**
+- [x] **Bug fix: share-import no longer pins failed geocodes to downtown Manhattan** — a shared place that can't be geocoded now imports name-only (lat/lng 0) so "Resolve missing locations" backfills it.
 
 ## Needs you (setup)
 - [x] **Rebuild the HA add-on** — *do this again*: server gained pin delete/unlink/reject + `GET /availability/window`. HA → Apps → ResyBooker → ⋮ → Rebuild.
@@ -41,6 +44,9 @@ you. Tell Claude "add X to the plan" any time and it lands here.
 - [ ] **Pencil design screens for Watches + Onboarding** (built app-first; align the .pen when Pencil is open next)
 - [ ] Merge `ios-design-buildout` → `main` / push when ready
 - [ ] Watch notifications surface (server sets `notify`; how alerts reach the phone — HA notification? push? — is undecided)
+- [ ] **Release radar** (venue-level watch): poll a restaurant's whole booking horizon on a slow interval and alert when *new days* become bookable — catches unannounced "new bank opened" moments that Watches (one fixed date) and Drops (known schedule) don't cover. Server has all the pieces (scheduler loop, `resy.find` fan-out, Watch as the model template). Depends on the notifications surface to be truly passive.
+- [ ] Reservations list in-app (`BookingRecord` is logged server-side but there's no `GET /bookings`, no history screen, no add-to-calendar, no cancel)
+- [ ] Surface auto-book run history (`GET /drops/{id}/runs` exists; nothing in the app calls it)
 
 ## Known quirks
 - **OneDrive** keeps resurrecting the old `Book my restaurant/` folder and shuffling the `.pen` files — delete the stray folder if it returns; the real design is `design/Book-my-restaurant.pen`.

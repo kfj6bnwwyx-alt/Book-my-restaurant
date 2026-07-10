@@ -69,7 +69,10 @@ struct RootView: View {
             } else if let location = try? await CLGeocoder().geocodeAddressString(spot.name).first?.location {
                 (lat, lng) = (location.coordinate.latitude, location.coordinate.longitude)
             } else {
-                (lat, lng) = (40.7128, -74.006)
+                // Name-only, like CSV imports: lat/lng 0 marks it "unlocated" so
+                // Settings → Resolve missing locations backfills the real spot,
+                // instead of silently pinning it to downtown Manhattan.
+                (lat, lng) = (0, 0)
             }
             let geojson = SpotGeoJSON.oneFeature(name: spot.name, lat: lat, lng: lng)
             do { _ = try await APIClient.shared.importPins(geojson: geojson) }

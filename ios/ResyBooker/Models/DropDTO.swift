@@ -128,7 +128,7 @@ struct ReserveResponse: Codable {
 struct ReserveResult: Codable, Identifiable {
     let day: String
     let time: String
-    let status: String     // "booked" | "taken" | "error"
+    let status: String     // "confirmed" | "taken" | "failed" | "error"
     let error: String?
     var id: String { "\(day)-\(time)" }
 }

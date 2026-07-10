@@ -200,23 +200,24 @@ struct ReserveResultSheet: View {
         .tint(RBColor.accent)
     }
 
+    // Server slot statuses: "confirmed" | "taken" | "failed" | "error".
     private func icon(_ status: String) -> String {
         switch status {
-        case "booked": "checkmark.circle.fill"
+        case "confirmed": "checkmark.circle.fill"
         case "taken": "minus.circle"
         default: "exclamationmark.triangle.fill"
         }
     }
     private func tint(_ status: String) -> Color {
         switch status {
-        case "booked": RBColor.success
+        case "confirmed": RBColor.success
         case "taken": RBColor.textMuted
         default: RBColor.red
         }
     }
     private func label(_ status: String) -> String {
         switch status {
-        case "booked": "Booked"
+        case "confirmed": "Booked"
         case "taken": "Taken"
         default: "Failed"
         }
