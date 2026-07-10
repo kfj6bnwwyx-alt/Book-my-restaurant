@@ -4,10 +4,8 @@ Living checklist of what's done, what's pending, and the setup steps that need
 you. Tell Claude "add X to the plan" any time and it lands here.
 
 ## Branches & deploy
-- **iOS app** lives on branch **`ios-design-buildout`** (not merged to `main`, not pushed). Build locally with ⌘R.
+- **`ios-design-buildout` is merged to `main`** (PR #1, Jul 2026) — everything now lives on `main`; the branch is kept in sync with it. Build locally with ⌘R.
 - **Server** deploys from **`origin/main`** → the HA add-on re-clones `main` on **Rebuild**.
-  Latest server on main: CSV import + NYC fallback + `PATCH /pins/{id}` + pin
-  delete/unlink/reject + `GET /availability/window` (one venue across N days).
 - **After any server change: HA → Apps → ResyBooker → ⋮ → Rebuild.**
 
 ## Done
@@ -35,14 +33,15 @@ you. Tell Claude "add X to the plan" any time and it lands here.
 - [x] **Bug fix: share-import no longer pins failed geocodes to downtown Manhattan** — a shared place that can't be geocoded now imports name-only (lat/lng 0) so "Resolve missing locations" backfills it.
 
 ## Needs you (setup)
-- [x] **Rebuild the HA add-on** — *do this again*: server gained pin delete/unlink/reject + `GET /availability/window`. HA → Apps → ResyBooker → ⋮ → Rebuild.
+- [ ] **Rebuild the HA add-on** — *do this again*: `main` now has the timezone fix for `/availability/window` (PR #1). HA → Apps → ResyBooker → ⋮ → Rebuild. Verified locally; the live server still runs the pre-merge build until this.
+- [x] ~~Rebuild for pin delete/unlink/reject + `GET /availability/window`~~ — done (routes confirmed live).
 - [x] **Open `design/Book-my-restaurant.pen` in Pencil** — done; design aligned to the app
 - [x] **Share extension App Group**: added `group.house-connect.Book-my-restaurant` to both targets (entitlements wired)
 - [x] **Resy card is fine** — the Amex …3001 was reissued past its printed 12/2025 expiry and the stored card still works in Resy (user-confirmed, Jul 2026). Same `resy_payment_method_id`, no config change needed. Booking is not blocked.
 
 ## Not built yet
 - [ ] **Pencil design screens for Watches + Onboarding** (built app-first; align the .pen when Pencil is open next)
-- [ ] Merge `ios-design-buildout` → `main` / push when ready
+- [x] Merge `ios-design-buildout` → `main` / push when ready — **done (PR #1)**
 - [ ] Watch notifications surface (server sets `notify`; how alerts reach the phone — HA notification? push? — is undecided)
 - [ ] **Release radar** (venue-level watch): poll a restaurant's whole booking horizon on a slow interval and alert when *new days* become bookable — catches unannounced "new bank opened" moments that Watches (one fixed date) and Drops (known schedule) don't cover. Server has all the pieces (scheduler loop, `resy.find` fan-out, Watch as the model template). Depends on the notifications surface to be truly passive.
 - [ ] Reservations list in-app (`BookingRecord` is logged server-side but there's no `GET /bookings`, no history screen, no add-to-calendar, no cancel)
