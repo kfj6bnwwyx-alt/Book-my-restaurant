@@ -140,6 +140,36 @@ actor APIClient {
         _ = try await request("/pins/\(pinId)/reject", method: "POST", body: body)
     }
 
+    // MARK: - Venue search / search-to-add
+
+    /// Free-text venue search on a provider. lat/lng bias results to a city.
+    func searchVenues(
+        query: String, provider: String, lat: Double?, lng: Double?
+    ) async throws -> [VenueSearchResultDTO] {
+        var q = [
+            URLQueryItem(name: "q", value: query),
+            URLQueryItem(name: "provider", value: provider),
+        ]
+        if let lat { q.append(URLQueryItem(name: "lat", value: String(lat))) }
+        if let lng { q.append(URLQueryItem(name: "lng", value: String(lng))) }
+        let data = try await request("/venues/search", query: q)
+        return try decode([VenueSearchResultDTO].self, data)
+    }
+
+    /// Create a pin that arrives already linked (from a search result).
+    /// The server dedupes on (provider, venue_id).
+    func createLinkedPin(_ req: PinCreateRequest) async throws -> PinDTO {
+        let body = try encoder.encode(req)
+        let data = try await request("/pins", method: "POST", body: body)
+        return try decode(PinDTO.self, data)
+    }
+
+    /// Delete every unlinked pin in one call; returns how many were removed.
+    func clearUnlinkedPins() async throws -> Int {
+        let data = try await request("/pins/clear-unlinked", method: "POST")
+        return try decode(ClearUnlinkedResponse.self, data).deleted
+    }
+
     // MARK: - Availability
 
     func availability(

@@ -24,6 +24,8 @@ final class PinsViewModel {
     /// Spots imported by name (CSV) have no coordinates yet (lat/lng 0).
     var unlocatedCount: Int { pins.filter { $0.lat == 0 && $0.lng == 0 }.count }
 
+    var unlinkedCount: Int { pins.filter { !$0.linked }.count }
+
     /// Look up coordinates for name-only spots via Apple Maps and patch them on
     /// the server, so they appear on the map and rank better. Returns how many
     /// were resolved.
@@ -70,6 +72,39 @@ final class PinsViewModel {
             importSummary = "Imported \(resp.imported) of \(resp.totalParsed) places."
             await load()
             return resp
+        } catch {
+            fail(error)
+            return nil
+        }
+    }
+
+    /// Provider venue search for the add-a-spot sheet. Rethrows so the sheet
+    /// can distinguish a stale server (isMissingEndpoint) from other errors.
+    func searchVenues(
+        query: String, provider: String, lat: Double?, lng: Double?
+    ) async throws -> [VenueSearchResultDTO] {
+        try await api.searchVenues(query: query, provider: provider, lat: lat, lng: lng)
+    }
+
+    /// Add a venue picked from provider search as a born-linked pin.
+    func addLinkedPin(_ req: PinCreateRequest) async -> Bool {
+        do {
+            _ = try await api.createLinkedPin(req)
+            await load()
+            return true
+        } catch {
+            fail(error)
+            return false
+        }
+    }
+
+    /// Delete every unlinked pin in one server call. Returns the deleted
+    /// count, or nil on failure (errorMessage is set).
+    func clearUnlinked() async -> Int? {
+        do {
+            let deleted = try await api.clearUnlinkedPins()
+            await load()
+            return deleted
         } catch {
             fail(error)
             return nil
