@@ -4,6 +4,7 @@ Endpoints:
   GET    /health
   GET    /pins                       list saved pins + link status
   POST   /pins/import                import Google Takeout GeoJSON
+  POST   /pins                       create a pin already linked to a venue (search-to-add)
   GET    /pins/{id}/candidates       provider venue candidates for a pin
   POST   /pins/{id}/link             confirm pin -> venue mapping
   POST   /pins/{id}/unlink           undo a venue link (keep the pin)
@@ -93,6 +94,17 @@ class PinLocationBody(BaseModel):
     lat: float
     lng: float
     address: Optional[str] = None
+
+
+class PinCreateBody(BaseModel):
+    """Search-to-add: create a pin already linked to a provider venue."""
+
+    name: str
+    address: Optional[str] = None
+    lat: float = 0.0  # 0/0 = unlocated; 'resolve missing locations' backfills
+    lng: float = 0.0
+    provider: str  # "resy" | "opentable"
+    venue_id: str
 
 
 class RejectBody(BaseModel):
@@ -222,6 +234,45 @@ def import_pins(body: ImportBody, session: Session = Depends(get_session)):
         added += 1
     session.commit()
     return {"imported": added, "total_parsed": len(parsed)}
+
+
+def _pin_json(p: Pin, existing: bool = False) -> dict:
+    return {
+        "id": p.id,
+        "name": p.name,
+        "address": p.address,
+        "lat": p.lat,
+        "lng": p.lng,
+        "provider": p.provider,
+        "venue_id": p.venue_id,
+        "linked": p.venue_id is not None,
+        "existing": existing,
+    }
+
+
+@app.post("/pins", dependencies=[Depends(require_key)])
+def create_pin(body: PinCreateBody, session: Session = Depends(get_session)):
+    """Create a born-linked pin from a /venues/search result. Dedupes on
+    (provider, venue_id) so re-adding a venue can't duplicate it."""
+    dup = session.exec(
+        select(Pin).where(Pin.provider == body.provider, Pin.venue_id == body.venue_id)
+    ).first()
+    if dup:
+        return _pin_json(dup, existing=True)
+    pin = Pin(
+        name=body.name,
+        address=body.address,
+        lat=body.lat,
+        lng=body.lng,
+        provider=body.provider,
+        venue_id=body.venue_id,
+        linked_name=body.name,
+        linked_at=datetime.utcnow(),
+    )
+    session.add(pin)
+    session.commit()
+    session.refresh(pin)
+    return _pin_json(pin)
 
 
 @app.get("/pins/{pin_id}/candidates", dependencies=[Depends(require_key)])
